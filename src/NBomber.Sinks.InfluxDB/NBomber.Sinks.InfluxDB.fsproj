@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="InfluxDBSink.fs" />
+  </ItemGroup>
+
+  <ItemGroup>    
+    <PackageReference Include="NBomber" Version="0.7.1" />
+    <PackageReference Include="App.Metrics" Version="3.0.0" />
+    <PackageReference Include="App.Metrics.Reporting.InfluxDB" Version="3.0.0" />    
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="4.6.1" />
+  </ItemGroup>
+
+</Project>
