@@ -10,6 +10,9 @@ namespace NBomber.Sinks.InfluxDB.Examples.CSharp
         static void Main(string[] args)
         {
             var influxDb = new InfluxDBSink(url: "http://localhost:8086", dbName: "default");
+//            var influxDb = new InfluxDBSink(url: "http://localhost:8086", dbName: "default")
+//                .WithCustomMetricsTags(s =>
+//                    new MetricTags(new[] {"environment"}, new[] {"linux"}));
 
             var scenario = BuildScenario();
             NBomberRunner.RegisterScenarios(scenario)
