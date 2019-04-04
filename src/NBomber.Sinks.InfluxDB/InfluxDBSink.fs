@@ -6,10 +6,6 @@ open App.Metrics
 open App.Metrics.Gauge
 open NBomber.Contracts
 
-type ScenarioName = string
-
-type StepName = string
-
 type InfluxDBSink(url: string, dbName: string) =
 
     let mutable addCustomMetricsTagsFn: Func<Statistics, MetricTags> option = None
