@@ -10,6 +10,7 @@
     <PackageProjectUrl>https://github.com/PragmaticFlow/NBomber.Sinks.InfluxDB</PackageProjectUrl>
     <PackageIconUrl>https://raw.githubusercontent.com/PragmaticFlow/NBomber/master/assets/nbomber_icon.png</PackageIconUrl>
     <PackageLicenseUrl>https://github.com/PragmaticFlow/NBomber.Sinks.InfluxDB/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>
