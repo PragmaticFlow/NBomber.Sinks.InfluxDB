@@ -1,5 +1,6 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/ptahoo3renvkn7vu?svg=true)](https://ci.appveyor.com/project/PragmaticFlowOrg/nbomber-sinks-influxdb)
 [![NuGet](https://img.shields.io/nuget/v/nbomber.sinks.influxdb.svg)](https://www.nuget.org/packages/nbomber.sinks.influxdb/)
+[![Gitter](https://badges.gitter.im/nbomber/community.svg)](https://gitter.im/nbomber/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 A NBomber sink that writes statistics to InfluxDB
 
