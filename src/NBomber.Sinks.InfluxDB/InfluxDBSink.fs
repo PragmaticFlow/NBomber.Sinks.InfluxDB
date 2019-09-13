@@ -21,8 +21,8 @@ type InfluxDBSink(url: string, dbName: string) =
             let m = GaugeOptions(
                         Name = name,
                         Context = contextName, 
-                        Tags = MetricTags([|"nodeName"; "sender"|], 
-                                          [|s.Meta.NodeName; s.Meta.Sender.ToString()|]))
+                        Tags = MetricTags([|"machineName"; "sender"|], 
+                                          [|s.Meta.MachineName; s.Meta.Sender.ToString()|]))
             metrics.Measure.Gauge.SetValue(m, value))
 
     interface IStatisticsSink with
