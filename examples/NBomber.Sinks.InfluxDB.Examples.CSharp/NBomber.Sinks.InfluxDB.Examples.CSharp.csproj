@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NBomber.Http" Version="0.15.0-beta" />
+    <PackageReference Include="NBomber.Http" Version="0.15.0-beta3" />
   </ItemGroup>
 
   <ItemGroup>

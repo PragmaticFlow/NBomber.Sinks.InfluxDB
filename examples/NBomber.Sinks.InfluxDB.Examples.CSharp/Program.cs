@@ -17,7 +17,7 @@
             
             var scenario = ScenarioBuilder.CreateScenario("test_gitter", step)
                 .WithConcurrentCopies(100)
-                .WithWarmUpDuration(TimeSpan.FromSeconds(5))
+                .WithWarmUpDuration(TimeSpan.FromSeconds(40))
                 .WithDuration(TimeSpan.FromSeconds(60));
             
             NBomberRunner.RegisterScenarios(scenario)
