@@ -12,7 +12,7 @@ type InfluxDBSink(url: string, dbName: string) =
     let saveGaugeMetrics (s: Statistics) =
         
         let operation =
-            match s.Meta.Operation with
+            match s.NodeStatsInfo.Operation with
             | WarmUp  -> "warmup"
             | Bombing -> "bombing"
             | Complete -> "complete"
@@ -27,7 +27,7 @@ type InfluxDBSink(url: string, dbName: string) =
                         Name = name,
                         Context = "NBomber",
                         Tags = MetricTags([|"machineName"; "sender"; "scenario"; "step"; "operation"|],                                          
-                                          [|s.Meta.MachineName; s.Meta.Sender.ToString();
+                                          [|s.NodeStatsInfo.MachineName; s.NodeStatsInfo.Sender.ToString();
                                             s.ScenarioName; s.StepName; operation |]))
             metrics.Measure.Gauge.SetValue(m, value))
 
