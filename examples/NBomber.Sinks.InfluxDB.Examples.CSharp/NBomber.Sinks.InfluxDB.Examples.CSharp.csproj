@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -6,11 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NBomber.Http" Version="0.15.0" />
+    <ProjectReference Include="..\..\src\NBomber.Sinks.InfluxDB\NBomber.Sinks.InfluxDB.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\NBomber.Sinks.InfluxDB\NBomber.Sinks.InfluxDB.fsproj" />
+    <PackageReference Include="NBomber.Http" Version="0.16.0-beta2" />
   </ItemGroup>
 
 </Project>

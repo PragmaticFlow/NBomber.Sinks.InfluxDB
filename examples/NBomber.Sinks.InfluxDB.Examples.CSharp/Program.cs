@@ -8,20 +8,19 @@
     {
         static void Main(string[] args)
         {
-            var influxDb = new InfluxDBSink(url: "http://localhost:8086", dbName: "default");
+            var influxDb = new InfluxDBSink(url: "http://localhost:8086", dbName: "NBomberDb");
             
             var step = HttpStep.Create("simple step", (context) =>
-                    Http.CreateRequest("GET", "https://gitter.im")
-                        .WithHeader("Accept", "text/html")
+                    Http.CreateRequest("GET", "https://nbomber.com")
             );
             
-            var scenario = ScenarioBuilder.CreateScenario("test_gitter", step)
+            var scenario = ScenarioBuilder.CreateScenario("test_nbomber", new[] { step })
                 .WithConcurrentCopies(100)
-                .WithWarmUpDuration(TimeSpan.FromSeconds(40))
-                .WithDuration(TimeSpan.FromSeconds(60));
+                .WithWarmUpDuration(TimeSpan.FromSeconds(10))
+                .WithDuration(TimeSpan.FromMinutes(3));
             
             NBomberRunner.RegisterScenarios(scenario)
-                         .SaveStatisticsTo(influxDb)
+                         .WithReportingSinks(new[] { influxDb }, TimeSpan.FromSeconds(20))
                          .RunInConsole();
         }
     }

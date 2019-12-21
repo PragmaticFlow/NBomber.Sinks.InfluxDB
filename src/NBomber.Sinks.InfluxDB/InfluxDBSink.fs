@@ -9,13 +9,13 @@ type InfluxDBSink(url: string, dbName: string) =
 
     let metrics = MetricsBuilder().Report.ToInfluxDb(url, dbName).Build()
 
-    let saveGaugeMetrics (s: Statistics) =
+    let saveGaugeMetrics (testInfo: TestInfo) (s: Statistics) =
         
         let operation =
-            match s.NodeStatsInfo.Operation with
-            | WarmUp  -> "warmup"
-            | Bombing -> "bombing"
-            | Complete -> "complete"
+            match s.NodeInfo.CurrentOperation with            
+            | NodeOperationType.Bombing  -> "bombing"
+            | NodeOperationType.Complete -> "complete"
+            | _                          -> "unknown_operation"
             
         [("OkCount", float s.OkCount); ("FailCount", float s.FailCount); 
          ("RPS", float s.RPS); ("Min", float s.Min); ("Mean", float s.Mean); ("Max", float s.Max)            
@@ -26,12 +26,25 @@ type InfluxDBSink(url: string, dbName: string) =
             let m = GaugeOptions(
                         Name = name,
                         Context = "NBomber",
-                        Tags = MetricTags([|"machineName"; "sender"; "scenario"; "step"; "operation"|],                                          
-                                          [|s.NodeStatsInfo.MachineName; s.NodeStatsInfo.Sender.ToString();
+                        Tags = MetricTags([|"machineName"; "sender"
+                                            "session_id"; "test_suite"; "test_name"
+                                            "scenario"; "step"; "operation"|],
+                                          [|s.NodeInfo.MachineName; s.NodeInfo.Sender.ToString()
+                                            testInfo.SessionId; testInfo.TestSuite; testInfo.TestName
                                             s.ScenarioName; s.StepName; operation |]))
             metrics.Measure.Gauge.SetValue(m, value))
 
-    interface IStatisticsSink with
-        member x.SaveStatistics (statistics: Statistics[]) =        
-            statistics |> Array.iter(saveGaugeMetrics)
-            Task.WhenAll(metrics.ReportRunner.RunAllAsync())  
+    interface IReportingSink with
+        member x.StartTest(testInfo: TestInfo) =
+            Task.CompletedTask
+        
+        member x.SaveRealtimeStats (testInfo: TestInfo, stats: Statistics[]) =        
+            stats |> Array.iter(saveGaugeMetrics testInfo)
+            Task.WhenAll(metrics.ReportRunner.RunAllAsync())
+            
+        member x.SaveFinalStats(testInfo: TestInfo, stats: Statistics[], reportFiles: ReportFile[]) =
+            stats |> Array.iter(saveGaugeMetrics testInfo)
+            Task.CompletedTask
+            
+        member x.FinishTest(testInfo: TestInfo) =
+            Task.CompletedTask
