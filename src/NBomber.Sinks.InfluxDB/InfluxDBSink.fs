@@ -1,8 +1,12 @@
 namespace NBomber.Sinks.InfluxDB
 
 open System.Threading.Tasks
+
+open Serilog
 open App.Metrics
 open App.Metrics.Gauge
+open Microsoft.Extensions.Configuration
+
 open NBomber.Contracts
 
 type InfluxDBSink(url: string, dbName: string) = 
@@ -35,6 +39,9 @@ type InfluxDBSink(url: string, dbName: string) =
             metrics.Measure.Gauge.SetValue(m, value))
 
     interface IReportingSink with
+        member x.Init(logger: ILogger, infraConfig: IConfiguration option) =
+            ()
+            
         member x.StartTest(testInfo: TestInfo) =
             Task.CompletedTask
         
