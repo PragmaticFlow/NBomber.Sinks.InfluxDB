@@ -9,9 +9,7 @@ open Microsoft.Extensions.Configuration
 
 open NBomber.Contracts
 
-type InfluxDBSink(url: string, dbName: string) =
-
-    let metrics = MetricsBuilder().Report.ToInfluxDb(url, dbName).Build()
+type InfluxDBSink(metricsRoot: IMetricsRoot) =
 
     let saveGaugeMetrics (testInfo: TestInfo) (s: Statistics) =
 
@@ -36,7 +34,11 @@ type InfluxDBSink(url: string, dbName: string) =
                                           [|s.NodeInfo.MachineName; s.NodeInfo.Sender.ToString()
                                             testInfo.SessionId; testInfo.TestSuite; testInfo.TestName
                                             s.ScenarioName; s.StepName; operation |]))
-            metrics.Measure.Gauge.SetValue(m, value))
+            metricsRoot.Measure.Gauge.SetValue(m, value))
+
+    new (url: string, dbName: string) =
+        let metrics = MetricsBuilder().Report.ToInfluxDb(url, dbName).Build()
+        InfluxDBSink(metrics)
 
     interface IReportingSink with
         member x.Init(logger: ILogger, infraConfig: IConfiguration option) =
@@ -47,7 +49,7 @@ type InfluxDBSink(url: string, dbName: string) =
 
         member x.SaveRealtimeStats (testInfo: TestInfo, stats: Statistics[]) =
             stats |> Array.iter(saveGaugeMetrics testInfo)
-            Task.WhenAll(metrics.ReportRunner.RunAllAsync())
+            Task.WhenAll(metricsRoot.ReportRunner.RunAllAsync())
 
         member x.SaveFinalStats(testInfo: TestInfo, stats: Statistics[], reportFiles: ReportFile[]) =
             stats |> Array.iter(saveGaugeMetrics testInfo)
