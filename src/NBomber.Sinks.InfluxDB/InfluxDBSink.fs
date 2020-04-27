@@ -11,49 +11,61 @@ open NBomber.Contracts
 
 type InfluxDBSink(metricsRoot: IMetricsRoot) =
 
-    let saveGaugeMetrics (testInfo: TestInfo) (s: Statistics) =
+    let mutable _logger = Unchecked.defaultof<ILogger>
+    let mutable _currentTestInfo = Unchecked.defaultof<TestInfo>
 
-        let operation =
-            match s.NodeInfo.CurrentOperation with
-            | NodeOperationType.Bombing  -> "bombing"
-            | NodeOperationType.Complete -> "complete"
-            | _                          -> "unknown_operation"
-
+    let saveStepStats (operation: string, scenarioName: string, nodeInfo: NodeInfo, s: StepStats) =
         [("OkCount", float s.OkCount); ("FailCount", float s.FailCount);
          ("RPS", float s.RPS); ("Min", float s.Min); ("Mean", float s.Mean); ("Max", float s.Max)
          ("Percent50", float s.Percent50); ("Percent75", float s.Percent75); ("Percent95", float s.Percent95); ("StdDev", float s.StdDev)
-         ("DataMinKb", s.DataMinKb); ("DataMeanKb", s.DataMeanKb); ("DataMaxKb", s.DataMaxKb); ("AllDataMB", s.AllDataMB)]
+         ("MinDataKb", s.MinDataKb); ("MeanDataKb", s.MeanDataKb); ("MaxDataKb", s.MaxDataKb); ("AllDataMB", s.AllDataMB)]
 
         |> List.iter(fun (name, value) ->
-            let m = GaugeOptions(
-                        Name = name,
-                        Context = "NBomber",
-                        Tags = MetricTags([|"machineName"; "sender"
-                                            "session_id"; "test_suite"; "test_name"
-                                            "scenario"; "step"; "operation"|],
-                                          [|s.NodeInfo.MachineName; s.NodeInfo.Sender.ToString()
-                                            testInfo.SessionId; testInfo.TestSuite; testInfo.TestName
-                                            s.ScenarioName; s.StepName; operation |]))
-            metricsRoot.Measure.Gauge.SetValue(m, value))
+            let metric =
+                GaugeOptions(
+                    Name = name,
+                    Context = "NBomber",
+                    Tags = MetricTags([|"machine_name"; "node_type"
+                                        "session_id"; "test_suite"; "test_name"
+                                        "scenario"; "step"; "operation"|],
+                                      [|nodeInfo.MachineName; nodeInfo.NodeType.ToString()
+                                        _currentTestInfo.SessionId; _currentTestInfo.TestSuite; _currentTestInfo.TestName
+                                        scenarioName; s.StepName; operation |]))
+            metricsRoot.Measure.Gauge.SetValue(metric, value))
+
+    let saveNodeStats (operation: string) (nodeStats: NodeStats) =
+        nodeStats.ScenarioStats
+        |> Array.map(fun x -> x.ScenarioName, x.StepStats)
+        |> Array.iter(fun (name,stats) ->
+            try
+                stats |> Array.iter(fun x -> saveStepStats(operation,name,nodeStats.NodeInfo,x))
+            with
+            | ex -> _logger.Error(ex.ToString())
+        )
 
     new (url: string, dbName: string) =
         let metrics = MetricsBuilder().Report.ToInfluxDb(url, dbName).Build()
-        InfluxDBSink(metrics)
+        new InfluxDBSink(metrics)
 
     interface IReportingSink with
+        member x.SinkName = "NBomber.Sinks.InfluxDB"
+
         member x.Init(logger: ILogger, infraConfig: IConfiguration option) =
-            ()
+            _logger <- logger.ForContext<InfluxDBSink>()
 
         member x.StartTest(testInfo: TestInfo) =
+            _currentTestInfo <- testInfo
             Task.CompletedTask
 
-        member x.SaveRealtimeStats (testInfo: TestInfo, stats: Statistics[]) =
-            stats |> Array.iter(saveGaugeMetrics testInfo)
+        member x.SaveRealtimeStats (stats: NodeStats[]) =
+            stats |> Array.iter(saveNodeStats "bombing")
             Task.WhenAll(metricsRoot.ReportRunner.RunAllAsync())
 
-        member x.SaveFinalStats(testInfo: TestInfo, stats: Statistics[], reportFiles: ReportFile[]) =
-            stats |> Array.iter(saveGaugeMetrics testInfo)
+        member x.SaveFinalStats(stats: NodeStats[]) =
+            stats |> Array.iter(saveNodeStats "complete")
             Task.CompletedTask
 
-        member x.FinishTest(testInfo: TestInfo) =
+        member x.StopTest() =
             Task.CompletedTask
+
+        member x.Dispose() = ()
