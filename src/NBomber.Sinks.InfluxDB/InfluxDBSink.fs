@@ -14,11 +14,17 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
     let mutable _logger = Unchecked.defaultof<ILogger>
     let mutable _currentTestInfo = Unchecked.defaultof<TestInfo>
 
-    let saveStepStats (operation: string, scenarioName: string, nodeInfo: NodeInfo, s: StepStats) =
+    let saveStepStats (operation: string,
+                       scenarioName: string,
+                       simulationStats: LoadSimulationStats,
+                       nodeInfo: NodeInfo,
+                       s: StepStats) =
+
         [("OkCount", float s.OkCount); ("FailCount", float s.FailCount);
          ("RPS", float s.RPS); ("Min", float s.Min); ("Mean", float s.Mean); ("Max", float s.Max)
-         ("Percent50", float s.Percent50); ("Percent75", float s.Percent75); ("Percent95", float s.Percent95); ("StdDev", float s.StdDev)
-         ("MinDataKb", s.MinDataKb); ("MeanDataKb", s.MeanDataKb); ("MaxDataKb", s.MaxDataKb); ("AllDataMB", s.AllDataMB)]
+         ("Percent50", float s.Percent50); ("Percent75", float s.Percent75); ("Percent95", float s.Percent95); ("Percent99", float s.Percent99); ("StdDev", float s.StdDev)
+         ("MinDataKb", s.MinDataKb); ("MeanDataKb", s.MeanDataKb); ("MaxDataKb", s.MaxDataKb); ("AllDataMB", s.AllDataMB)
+         ("LoadSimulationValue", float simulationStats.Value)]
 
         |> List.iter(fun (name, value) ->
             let metric =
@@ -27,18 +33,19 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
                     Context = "NBomber",
                     Tags = MetricTags([|"machine_name"; "node_type"
                                         "session_id"; "test_suite"; "test_name"
-                                        "scenario"; "step"; "operation"|],
+                                        "scenario"; "step"; "operation"; "simulation"|],
                                       [|nodeInfo.MachineName; nodeInfo.NodeType.ToString()
                                         _currentTestInfo.SessionId; _currentTestInfo.TestSuite; _currentTestInfo.TestName
-                                        scenarioName; s.StepName; operation |]))
+                                        scenarioName; s.StepName; operation; simulationStats.SimulationName |]))
             metricsRoot.Measure.Gauge.SetValue(metric, value))
 
     let saveNodeStats (operation: string) (nodeStats: NodeStats) =
         nodeStats.ScenarioStats
-        |> Array.map(fun x -> x.ScenarioName, x.StepStats)
-        |> Array.iter(fun (name,stats) ->
+        |> Seq.map(fun x -> x.ScenarioName, x.LoadSimulationStats, x.StepStats)
+        |> Seq.iter(fun (name,simulationStats,stepStats) ->
             try
-                stats |> Array.iter(fun x -> saveStepStats(operation,name,nodeStats.NodeInfo,x))
+                stepStats
+                |> Array.iter(fun stStats -> saveStepStats(operation,name,simulationStats,nodeStats.NodeInfo,stStats))
             with
             | ex -> _logger.Error(ex.ToString())
         )
