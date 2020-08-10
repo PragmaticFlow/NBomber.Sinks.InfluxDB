@@ -31,12 +31,10 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
                 GaugeOptions(
                     Name = name,
                     Context = "NBomber",
-                    Tags = MetricTags([|"machine_name"; "node_type"
-                                        "session_id"; "test_suite"; "test_name"
+                    Tags = MetricTags([|"node_type"; "test_suite"; "test_name"
                                         "scenario"; "step"; "operation"; "simulation"|],
-                                      [|nodeInfo.MachineName; nodeInfo.NodeType.ToString()
-                                        _currentTestInfo.SessionId; _currentTestInfo.TestSuite; _currentTestInfo.TestName
-                                        scenarioName; s.StepName; operation; simulationStats.SimulationName |]))
+                                      [|nodeInfo.NodeType.ToString(); _currentTestInfo.TestSuite; _currentTestInfo.TestName
+                                        scenarioName; s.StepName; operation; simulationStats.SimulationName|]))
             metricsRoot.Measure.Gauge.SetValue(metric, value))
 
     let saveNodeStats (operation: string) (nodeStats: NodeStats) =
