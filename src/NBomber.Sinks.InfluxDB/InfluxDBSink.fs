@@ -9,10 +9,19 @@ open Microsoft.Extensions.Configuration
 
 open NBomber.Contracts
 
+[<CLIMutable>]
+type InfluxDbSinkConfig = {
+    Url: string
+    DbName: string
+} with
+    static member Create(url: string, dbName: string) =
+        { Url = url; DbName = dbName }
+
 type InfluxDBSink(metricsRoot: IMetricsRoot) =
 
     let mutable _logger = Unchecked.defaultof<ILogger>
     let mutable _currentTestInfo = Unchecked.defaultof<TestInfo>
+    let mutable _metricsRoot = metricsRoot |> Option.ofObj
 
     let saveStepStats (operation: string,
                        scenarioName: string,
@@ -35,7 +44,9 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
                                         "scenario"; "step"; "operation"; "simulation"|],
                                       [|nodeInfo.NodeType.ToString(); _currentTestInfo.TestSuite; _currentTestInfo.TestName
                                         scenarioName; s.StepName; operation; simulationStats.SimulationName|]))
-            metricsRoot.Measure.Gauge.SetValue(metric, value))
+            _metricsRoot
+            |> Option.iter(fun x -> x.Measure.Gauge.SetValue(metric, value))
+        )
 
     let saveNodeStats (operation: string) (nodeStats: NodeStats) =
         nodeStats.ScenarioStats
@@ -48,15 +59,28 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
             | ex -> _logger.Error(ex.ToString())
         )
 
-    new (url: string, dbName: string) =
-        let metrics = MetricsBuilder().Report.ToInfluxDb(url, dbName).Build()
+    new (config: InfluxDbSinkConfig) =
+        let metrics = MetricsBuilder().Report.ToInfluxDb(config.Url, config.DbName).Build()
         new InfluxDBSink(metrics)
+
+    new() = new InfluxDBSink(null)
 
     interface IReportingSink with
         member x.SinkName = "NBomber.Sinks.InfluxDB"
 
         member x.Init(logger: ILogger, infraConfig: IConfiguration option) =
             _logger <- logger.ForContext<InfluxDBSink>()
+
+            infraConfig
+            |> Option.map(fun x -> x.GetSection("InfluxDBSink").Get<InfluxDbSinkConfig>())
+            |> Option.bind(fun x ->
+                if not(x |> box |> isNull) then Some x
+                else None
+            )
+            |> Option.iter(fun config ->
+                let metrics = MetricsBuilder().Report.ToInfluxDb(config.Url, config.DbName).Build()
+                _metricsRoot <- Some metrics
+            )
 
         member x.StartTest(testInfo: TestInfo) =
             _currentTestInfo <- testInfo

@@ -1,0 +1,6 @@
+{
+    "InfluxDBSink": {
+        "Url": "http://localhost:8086",
+        "DbName": "default"
+    }
+}
