@@ -25,7 +25,7 @@ let run () =
     |> NBomberRunner.registerScenario
     |> NBomberRunner.withTestSuite "reporting"
     |> NBomberRunner.withTestName "influx_test"
-    |> NBomberRunner.withReportingSinks([influxDb], seconds 10)
+    |> NBomberRunner.withReportingSinks [influxDb] (seconds 10)
     |> NBomberRunner.loadInfraConfig "infra-config.json"
     |> NBomberRunner.run
     |> ignore
