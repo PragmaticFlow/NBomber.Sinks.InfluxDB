@@ -82,7 +82,7 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
                 _metricsRoot <- Some metrics
             )
 
-        member x.StartTest(testInfo: TestInfo) =
+        member x.Start(testInfo: TestInfo) =
             _currentTestInfo <- testInfo
             Task.CompletedTask
 
@@ -94,7 +94,7 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
             stats |> Array.iter(saveNodeStats "complete")
             Task.CompletedTask
 
-        member x.StopTest() =
+        member x.Stop() =
             Task.CompletedTask
 
         member x.Dispose() = ()
