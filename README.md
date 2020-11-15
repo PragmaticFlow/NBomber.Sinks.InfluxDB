@@ -11,7 +11,7 @@ PM> Install-Package NBomber.Sinks.InfluxDB
 ```
 
 ### Documentation
-Documentation is located [here](https://nbomber.com).
+Documentation is located [here](https://nbomber.com/docs/).
 
 ### Contributing
 Would you like to help make NBomber even better? We keep a list of issues that are approachable for newcomers under the [good-first-issue](https://github.com/PragmaticFlow/NBomber.Sinks.InfluxDB/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) label.
