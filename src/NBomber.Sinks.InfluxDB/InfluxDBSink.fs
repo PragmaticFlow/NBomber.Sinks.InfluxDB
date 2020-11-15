@@ -92,7 +92,7 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
 
         member x.SaveFinalStats(stats: NodeStats[]) =
             stats |> Array.iter(saveNodeStats "complete")
-            Task.CompletedTask
+            Task.WhenAll(metricsRoot.ReportRunner.RunAllAsync())
 
         member x.Stop() =
             Task.CompletedTask
