@@ -1,30 +1,35 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>1.1.1</Version>
-    <Authors>PragmaticFlow</Authors>
-    <Copyright>PragmaticFlow@2019</Copyright>
-    <PackageTags>load-testing, performance-testing, integration-testing, influxdb, fsharp</PackageTags>
-    <Description>NBomber sink that writes statistics to InfluxDB.</Description>
-    <PackageProjectUrl>https://github.com/PragmaticFlow/NBomber.Sinks.InfluxDB</PackageProjectUrl>
-    <PackageIconUrl>https://raw.githubusercontent.com/PragmaticFlow/NBomber/master/assets/nbomber_icon.png</PackageIconUrl>
-    <PackageLicenseUrl>https://github.com/PragmaticFlow/NBomber.Sinks.InfluxDB/blob/master/LICENSE</PackageLicenseUrl>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <Version>1.1.1</Version>
+        <Authors>PragmaticFlow</Authors>
+        <Copyright>PragmaticFlow@2019</Copyright>
+        <PackageTags>load-testing, performance-testing, integration-testing, influxdb, fsharp</PackageTags>
+        <Description>NBomber sink that writes statistics to InfluxDB.</Description>
+        <PackageProjectUrl>https://github.com/PragmaticFlow/NBomber.Sinks.InfluxDB</PackageProjectUrl>
+        <PackageIcon>nbomber_icon.png</PackageIcon>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Include="InfluxDBSink.fs" />
-  </ItemGroup>
+    <ItemGroup>
+        <Compile Include="InfluxDBSink.fs"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="NBomber" Version="1.1.0" />
-    <PackageReference Include="App.Metrics" Version="3.2.0" />
-    <PackageReference Include="App.Metrics.Reporting.InfluxDB" Version="3.2.0" />
-  </ItemGroup>
+    <ItemGroup>
+        <None Include="LICENSE" Pack="true" Visible="false" PackagePath=""/>
+        <None Include="nbomber_icon.png" Pack="true" Visible="false" PackagePath=""/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="4.6.2" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="NBomber" Version="1.1.0"/>
+        <PackageReference Include="App.Metrics" Version="3.2.0"/>
+        <PackageReference Include="App.Metrics.Reporting.InfluxDB" Version="3.2.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core" Version="4.6.2"/>
+    </ItemGroup>
 
 </Project>
