@@ -17,29 +17,4 @@ Documentation is located [here](https://nbomber.com/docs/).
 Would you like to help make NBomber even better? We keep a list of issues that are approachable for newcomers under the [good-first-issue](https://github.com/PragmaticFlow/NBomber.Sinks.InfluxDB/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) label.
 
 ### Examples
-```csharp
-class Program
-{
-    static void Main(string[] args)
-    {
-        var influxDb = new InfluxDBSink(url: "http://localhost:8086", dbName: "default");
-
-        var scenario = BuildScenario();
-        NBomberRunner.RegisterScenarios(scenario)
-                     .SaveStatisticsTo(influxDb)
-                     .RunInConsole();
-    }
-
-    static Scenario BuildScenario()
-    {
-        var step = HttpStep.CreateRequest("GET", "https://www.youtube.com")
-                           .WithHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8")
-                           .WithHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36")
-                           .BuildStep("GET request");
-
-        return ScenarioBuilder.CreateScenario("youtube_scenario", step)
-            .WithConcurrentCopies(10)
-            .WithDuration(TimeSpan.FromSeconds(10));
-    }
-}
-```
+Example is located [here](https://github.com/PragmaticFlow/NBomber.Sinks.InfluxDB/tree/master/examples).
