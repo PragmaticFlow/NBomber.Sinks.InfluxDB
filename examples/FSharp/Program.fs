@@ -1,6 +1,5 @@
 ﻿open System.Threading.Tasks
-open FSharp.Control.Tasks.V2.ContextInsensitive
-
+open FSharp.Control.Tasks.NonAffine
 open NBomber.Contracts
 open NBomber.FSharp
 open NBomber.Sinks.InfluxDB
@@ -14,7 +13,7 @@ let run () =
         // this message will be saved to elastic search
         context.Logger.Debug("hello from NBomber")
 
-        return Response.Ok()
+        return Response.ok()
     })
 
     use influxDb = new InfluxDBSink()
@@ -25,7 +24,8 @@ let run () =
     |> NBomberRunner.registerScenario
     |> NBomberRunner.withTestSuite "reporting"
     |> NBomberRunner.withTestName "influx_test"
-    |> NBomberRunner.withReportingSinks [influxDb] (seconds 10)
+    |> NBomberRunner.withReportingSinks [influxDb]
+    |> NBomberRunner.withReportingInterval(seconds 10)
     |> NBomberRunner.loadInfraConfig "infra-config.json"
     |> NBomberRunner.run
     |> ignore

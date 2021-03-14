@@ -14,47 +14,52 @@ type InfluxDbSinkConfig = {
     Url: string
     DbName: string
 } with
-    static member Create(url: string, dbName: string) =
+    [<CompiledName("Create")>]
+    static member create(url: string, dbName: string) =
         { Url = url; DbName = dbName }
 
 type InfluxDBSink(metricsRoot: IMetricsRoot) =
 
     let mutable _logger = Unchecked.defaultof<ILogger>
-    let mutable _currentTestInfo = Unchecked.defaultof<TestInfo>
     let mutable _metricsRoot = metricsRoot |> Option.ofObj
+    let mutable _context = Unchecked.defaultof<IBaseContext>
 
-    let saveStepStats (operation: string,
-                       scenarioName: string,
-                       simulationStats: LoadSimulationStats,
-                       nodeInfo: NodeInfo,
-                       s: StepStats) =
+    let getOperationName (operation: OperationType) =
+        match operation with
+        | OperationType.Bombing  -> "bombing"
+        | OperationType.Complete -> "complete"
+        | _                      -> "bombing"
 
-        [("OkCount", float s.OkCount); ("FailCount", float s.FailCount);
-         ("RPS", float s.RPS); ("Min", float s.Min); ("Mean", float s.Mean); ("Max", float s.Max)
-         ("Percent50", float s.Percent50); ("Percent75", float s.Percent75); ("Percent95", float s.Percent95); ("Percent99", float s.Percent99); ("StdDev", float s.StdDev)
-         ("MinDataKb", s.MinDataKb); ("MeanDataKb", s.MeanDataKb); ("MaxDataKb", s.MaxDataKb); ("AllDataMB", s.AllDataMB)
-         ("LoadSimulationValue", float simulationStats.Value)]
+    let saveScenarioStats (stats: ScenarioStats) =
+        let operation = getOperationName(stats.CurrentOperation)
+        let nodeType = _context.NodeInfo.NodeType.ToString()
+        let testInfo = _context.TestInfo
+        let simulation = stats.LoadSimulationStats
 
-        |> List.iter(fun (name, value) ->
-            let metric =
-                GaugeOptions(
-                    Name = name,
-                    Context = "NBomber",
-                    Tags = MetricTags([|"node_type"; "test_suite"; "test_name"
-                                        "scenario"; "step"; "operation"; "simulation"|],
-                                      [|nodeInfo.NodeType.ToString(); _currentTestInfo.TestSuite; _currentTestInfo.TestName
-                                        scenarioName; s.StepName; operation; simulationStats.SimulationName|]))
-            _metricsRoot
-            |> Option.iter(fun x -> x.Measure.Gauge.SetValue(metric, value))
-        )
-
-    let saveNodeStats (operation: string) (nodeStats: NodeStats) =
-        nodeStats.ScenarioStats
-        |> Seq.map(fun x -> x.ScenarioName, x.LoadSimulationStats, x.StepStats)
-        |> Seq.iter(fun (name,simulationStats,stepStats) ->
+        stats.StepStats
+        |> Array.iter(fun s ->
             try
-                stepStats
-                |> Array.iter(fun stStats -> saveStepStats(operation,name,simulationStats,nodeStats.NodeInfo,stStats))
+                let lt = s.Ok.Latency
+                let dt = s.Ok.DataTransfer
+
+                [("OkCount", float s.Ok.Request.Count); ("FailCount", float s.Fail.Request.Count); ("RPS", float s.Ok.Request.RPS)
+                 ("Min", float lt.MinMs); ("Mean", float lt.MeanMs); ("Max", float lt.MaxMs); ("StdDev", float lt.StdDev)
+                 ("Percent50", float lt.Percent50); ("Percent75", float lt.Percent75); ("Percent95", float lt.Percent95); ("Percent99", float lt.Percent99)
+                 ("MinDataKb", dt.MinKb); ("MeanDataKb", dt.MeanKb); ("MaxDataKb", dt.MaxKb); ("AllDataMB", dt.AllMB)
+                 ("LoadSimulationValue", float simulation.Value)]
+
+                |> List.iter(fun (name, value) ->
+                    let metric =
+                        GaugeOptions(
+                            Name = name,
+                            Context = "NBomber",
+                            Tags = MetricTags([|"node_type"; "test_suite"; "test_name"
+                                                "scenario"; "step"; "operation"; "simulation"|],
+                                              [|nodeType; testInfo.TestSuite; testInfo.TestName
+                                                stats.ScenarioName; s.StepName; operation; simulation.SimulationName|]))
+                    _metricsRoot
+                    |> Option.iter(fun x -> x.Measure.Gauge.SetValue(metric, value))
+                )
             with
             | ex -> _logger.Error(ex.ToString())
         )
@@ -68,10 +73,12 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
     interface IReportingSink with
         member x.SinkName = "NBomber.Sinks.InfluxDB"
 
-        member x.Init(logger: ILogger, infraConfig: IConfiguration option) =
-            _logger <- logger.ForContext<InfluxDBSink>()
+        member x.Init(context: IBaseContext, infraConfig: IConfiguration) =
+            _logger <- context.Logger.ForContext<InfluxDBSink>()
+            _context <- context
 
             infraConfig
+            |> Option.ofObj
             |> Option.map(fun x -> x.GetSection("InfluxDBSink").Get<InfluxDbSinkConfig>())
             |> Option.bind(fun x ->
                 if not(x |> box |> isNull) then Some x
@@ -82,19 +89,14 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
                 _metricsRoot <- Some metrics
             )
 
-        member x.Start(testInfo: TestInfo) =
-            _currentTestInfo <- testInfo
             Task.CompletedTask
 
-        member x.SaveRealtimeStats (stats: NodeStats[]) =
-            stats |> Array.iter(saveNodeStats "bombing")
+        member x.Start() = Task.CompletedTask
+
+        member x.SaveRealtimeStats(stats: ScenarioStats[]) =
+            stats |> Array.iter(saveScenarioStats)
             Task.WhenAll(metricsRoot.ReportRunner.RunAllAsync())
 
-        member x.SaveFinalStats(stats: NodeStats[]) =
-            stats |> Array.iter(saveNodeStats "complete")
-            Task.WhenAll(metricsRoot.ReportRunner.RunAllAsync())
-
-        member x.Stop() =
-            Task.CompletedTask
-
+        member x.SaveFinalStats(stats: NodeStats[]) = Task.CompletedTask
+        member x.Stop() = Task.CompletedTask
         member x.Dispose() = ()
