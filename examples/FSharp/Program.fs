@@ -4,11 +4,12 @@ open NBomber.Contracts
 open NBomber.FSharp
 open NBomber.Sinks.InfluxDB
 
-let run () =
+[<EntryPoint>]
+let main argv =
 
     let step = Step.create("step_1", fun context -> task {
 
-        do! Task.Delay(seconds 1)
+        do! Task.Delay(milliseconds 100)
 
         // this message will be saved to elastic search
         context.Logger.Debug("hello from NBomber")
@@ -20,7 +21,6 @@ let run () =
 
     Scenario.create "hello_world_scenario" [step]
     |> Scenario.withoutWarmUp
-    |> Scenario.withLoadSimulations [KeepConstant(copies = 1, during = minutes 1)]
     |> NBomberRunner.registerScenario
     |> NBomberRunner.withTestSuite "reporting"
     |> NBomberRunner.withTestName "influx_test"
@@ -29,11 +29,6 @@ let run () =
     |> NBomberRunner.loadInfraConfig "infra-config.json"
     |> NBomberRunner.run
     |> ignore
-
-[<EntryPoint>]
-let main argv =
-
-    run()
 
     0 // return an integer exit code
 
