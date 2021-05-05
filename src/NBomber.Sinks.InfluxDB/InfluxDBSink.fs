@@ -1,7 +1,10 @@
 namespace NBomber.Sinks.InfluxDB
 
+open System
+open System.Runtime.InteropServices
 open System.Threading.Tasks
 
+open App.Metrics.Reporting.InfluxDB
 open Serilog
 open App.Metrics
 open App.Metrics.Gauge
@@ -12,16 +15,23 @@ open NBomber.Contracts
 [<CLIMutable>]
 type InfluxDbSinkConfig = {
     Url: string
-    DbName: string
+    Database: string
+    UserName: string
+    Password: string
+
 } with
     [<CompiledName("Create")>]
-    static member create(url: string, dbName: string) =
-        { Url = url; DbName = dbName }
+    static member create(url: string,
+                         database: string,
+                         [<Optional;DefaultParameterValue("")>] userName: string,
+                         [<Optional;DefaultParameterValue("")>] password: string) =
+
+        { Url = url; Database = database; UserName = userName; Password = password }
 
 type InfluxDBSink(metricsRoot: IMetricsRoot) =
 
     let mutable _logger = Unchecked.defaultof<ILogger>
-    let mutable _metricsRoot = metricsRoot |> Option.ofObj
+    let mutable _metricsRoot = metricsRoot
     let mutable _context = Unchecked.defaultof<IBaseContext>
 
     let getOperationName (operation: OperationType) =
@@ -74,16 +84,23 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
                                                 "scenario"; "step"; "operation"; "simulation.name"|],
                                               [|nodeType; testInfo.TestSuite; testInfo.TestName
                                                 stats.ScenarioName; s.StepName; operation; simulation.SimulationName|]))
-                    _metricsRoot
-                    |> Option.iter(fun x -> x.Measure.Gauge.SetValue(metric, value))
+
+                    _metricsRoot.Measure.Gauge.SetValue(metric, value)
                 )
             with
             | ex -> _logger.Error(ex.ToString())
         )
 
+    static let createMetricsRoot (config: InfluxDbSinkConfig) =
+        let options = MetricsReportingInfluxDbOptions()
+        options.InfluxDb.BaseUri <- Uri(config.Url)
+        options.InfluxDb.Database <- config.Database
+        options.InfluxDb.UserName <- config.UserName
+        options.InfluxDb.Password <- config.Password
+        MetricsBuilder().Report.ToInfluxDb(options).Build()
+
     new (config: InfluxDbSinkConfig) =
-        let metrics = MetricsBuilder().Report.ToInfluxDb(config.Url, config.DbName).Build()
-        new InfluxDBSink(metrics)
+        new InfluxDBSink(createMetricsRoot config)
 
     new() = new InfluxDBSink(null)
 
@@ -102,8 +119,7 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
                 else None
             )
             |> Option.iter(fun config ->
-                let metrics = MetricsBuilder().Report.ToInfluxDb(config.Url, config.DbName).Build()
-                _metricsRoot <- Some metrics
+                _metricsRoot <- createMetricsRoot config
             )
 
             Task.CompletedTask
@@ -112,7 +128,7 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
 
         member x.SaveRealtimeStats(stats: ScenarioStats[]) =
             stats |> Array.iter(saveScenarioStats)
-            Task.WhenAll(metricsRoot.ReportRunner.RunAllAsync())
+            Task.WhenAll(_metricsRoot.ReportRunner.RunAllAsync())
 
         member x.SaveFinalStats(stats: NodeStats[]) = Task.CompletedTask
         member x.Stop() = Task.CompletedTask
