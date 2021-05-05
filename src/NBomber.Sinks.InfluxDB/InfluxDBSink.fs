@@ -39,14 +39,31 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
         stats.StepStats
         |> Array.iter(fun s ->
             try
-                let lt = s.Ok.Latency
-                let dt = s.Ok.DataTransfer
+                let okR = s.Ok.Request
+                let okL = s.Ok.Latency
+                let okD = s.Ok.DataTransfer
 
-                [("OkCount", float s.Ok.Request.Count); ("FailCount", float s.Fail.Request.Count); ("RPS", float s.Ok.Request.RPS)
-                 ("Min", float lt.MinMs); ("Mean", float lt.MeanMs); ("Max", float lt.MaxMs); ("StdDev", float lt.StdDev)
-                 ("Percent50", float lt.Percent50); ("Percent75", float lt.Percent75); ("Percent95", float lt.Percent95); ("Percent99", float lt.Percent99)
-                 ("MinDataKb", dt.MinKb); ("MeanDataKb", dt.MeanKb); ("MaxDataKb", dt.MaxKb); ("AllDataMB", dt.AllMB)
-                 ("LoadSimulationValue", float simulation.Value)]
+                let fR = s.Fail.Request
+                let fL = s.Fail.Latency
+                let fD = s.Fail.DataTransfer
+
+                [("Ok.Request.Count", float okR.Count); ("Ok.Request.RPS", float okR.RPS)
+                 ("Ok.Latency.MinMs", float okL.MinMs); ("Ok.Latency.MeanMs", float okL.MeanMs)
+                 ("Ok.Latency.MaxMs", float okL.MaxMs); ("Ok.Latency.StdDev", float okL.StdDev)
+                 ("Ok.Latency.Percent50", float okL.Percent50); ("Ok.Latency.Percent75", float okL.Percent75)
+                 ("Ok.Latency.Percent95", float okL.Percent95); ("Ok.Latency.Percent99", float okL.Percent99)
+                 ("Ok.DataTransfer.MinKb", okD.MinKb); ("Ok.DataTransfer.MeanKb", okD.MeanKb)
+                 ("Ok.DataTransfer.MaxKb", okD.MaxKb); ("Ok.DataTransfer.AllMB", okD.AllMB)
+
+                 ("Fail.Request.Count", float fR.Count); ("Fail.Request.RPS", float fR.RPS)
+                 ("Fail.Latency.MinMs", float fL.MinMs); ("Fail.Latency.MeanMs", float fL.MeanMs)
+                 ("Fail.Latency.MaxMs", float fL.MaxMs); ("Fail.Latency.StdDev", float fL.StdDev)
+                 ("Fail.Latency.Percent50", float fL.Percent50); ("Fail.Latency.Percent75", float fL.Percent75)
+                 ("Fail.Latency.Percent95", float fL.Percent95); ("Fail.Latency.Percent99", float fL.Percent99)
+                 ("Fail.DataTransfer.MinKb", fD.MinKb); ("Fail.DataTransfer.MeanKb", fD.MeanKb)
+                 ("Fail.DataTransfer.MaxKb", fD.MaxKb); ("Fail.DataTransfer.AllMB", fD.AllMB)
+
+                 ("simulation.value", float simulation.Value)]
 
                 |> List.iter(fun (name, value) ->
                     let metric =
@@ -54,7 +71,7 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
                             Name = name,
                             Context = "NBomber",
                             Tags = MetricTags([|"node_type"; "test_suite"; "test_name"
-                                                "scenario"; "step"; "operation"; "simulation"|],
+                                                "scenario"; "step"; "operation"; "simulation.name"|],
                                               [|nodeType; testInfo.TestSuite; testInfo.TestName
                                                 stats.ScenarioName; s.StepName; operation; simulation.SimulationName|]))
                     _metricsRoot
