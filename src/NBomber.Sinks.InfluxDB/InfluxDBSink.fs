@@ -4,12 +4,13 @@ open System
 open System.Runtime.InteropServices
 open System.Threading.Tasks
 
-open App.Metrics.Reporting.InfluxDB
 open Serilog
 open App.Metrics
 open App.Metrics.Gauge
+open App.Metrics.Reporting.InfluxDB
 open Microsoft.Extensions.Configuration
 
+open NBomber
 open NBomber.Contracts
 
 [<CLIMutable>]
@@ -18,7 +19,6 @@ type InfluxDbSinkConfig = {
     Database: string
     UserName: string
     Password: string
-
 } with
     [<CompiledName("Create")>]
     static member create(url: string,
@@ -58,20 +58,20 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
                 let fD = s.Fail.DataTransfer
 
                 [("Ok.Request.Count", float okR.Count); ("Ok.Request.RPS", float okR.RPS)
-                 ("Ok.Latency.MinMs", float okL.MinMs); ("Ok.Latency.MeanMs", float okL.MeanMs)
-                 ("Ok.Latency.MaxMs", float okL.MaxMs); ("Ok.Latency.StdDev", float okL.StdDev)
+                 ("Ok.Latency.Min", float okL.MinMs); ("Ok.Latency.Mean", float okL.MeanMs)
+                 ("Ok.Latency.Max", float okL.MaxMs); ("Ok.Latency.StdDev", float okL.StdDev)
                  ("Ok.Latency.Percent50", float okL.Percent50); ("Ok.Latency.Percent75", float okL.Percent75)
                  ("Ok.Latency.Percent95", float okL.Percent95); ("Ok.Latency.Percent99", float okL.Percent99)
-                 ("Ok.DataTransfer.MinKb", okD.MinKb); ("Ok.DataTransfer.MeanKb", okD.MeanKb)
-                 ("Ok.DataTransfer.MaxKb", okD.MaxKb); ("Ok.DataTransfer.AllMB", okD.AllMB)
+                 ("Ok.DataTransfer.Min", float okD.MinBytes); ("Ok.DataTransfer.Mean", float okD.MeanBytes)
+                 ("Ok.DataTransfer.Max", float okD.MaxBytes); ("Ok.DataTransfer.AllMb", okD.AllBytes |> mb |> float)
 
                  ("Fail.Request.Count", float fR.Count); ("Fail.Request.RPS", float fR.RPS)
-                 ("Fail.Latency.MinMs", float fL.MinMs); ("Fail.Latency.MeanMs", float fL.MeanMs)
-                 ("Fail.Latency.MaxMs", float fL.MaxMs); ("Fail.Latency.StdDev", float fL.StdDev)
+                 ("Fail.Latency.Min", float fL.MinMs); ("Fail.Latency.Mean", float fL.MeanMs)
+                 ("Fail.Latency.Max", float fL.MaxMs); ("Fail.Latency.StdDev", float fL.StdDev)
                  ("Fail.Latency.Percent50", float fL.Percent50); ("Fail.Latency.Percent75", float fL.Percent75)
                  ("Fail.Latency.Percent95", float fL.Percent95); ("Fail.Latency.Percent99", float fL.Percent99)
-                 ("Fail.DataTransfer.MinKb", fD.MinKb); ("Fail.DataTransfer.MeanKb", fD.MeanKb)
-                 ("Fail.DataTransfer.MaxKb", fD.MaxKb); ("Fail.DataTransfer.AllMB", fD.AllMB)
+                 ("Fail.DataTransfer.Min", float fD.MinBytes); ("Fail.DataTransfer.Mean", float fD.MeanBytes)
+                 ("Fail.DataTransfer.Max", float fD.MaxBytes); ("Fail.DataTransfer.AllMb", fD.AllBytes |> mb |> float)
 
                  ("simulation.value", float simulation.Value)]
 
