@@ -23,11 +23,12 @@ let main argv =
 
     Scenario.create "hello_world_scenario" [step]
     |> Scenario.withoutWarmUp
+    |> Scenario.withLoadSimulations [KeepConstant(1, minutes 5)]
     |> NBomberRunner.registerScenario
     |> NBomberRunner.withTestSuite "reporting"
     |> NBomberRunner.withTestName "influx_test"
     |> NBomberRunner.withReportingSinks [influxDb]
-    |> NBomberRunner.withReportingInterval(seconds 10)
+    |> NBomberRunner.withReportingInterval(seconds 5)
     |> NBomberRunner.loadInfraConfig "infra-config.json"
     |> NBomberRunner.run
     |> ignore

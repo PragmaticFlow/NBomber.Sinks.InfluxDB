@@ -1,16 +1,14 @@
 namespace NBomber.Sinks.InfluxDB
 
-open System
+open System.Collections.Generic
 open System.Runtime.InteropServices
 open System.Threading.Tasks
 
+open InfluxDB.Client
+open InfluxDB.Client.Writes
 open Serilog
-open App.Metrics
-open App.Metrics.Gauge
-open App.Metrics.Reporting.InfluxDB
 open Microsoft.Extensions.Configuration
 
-open NBomber
 open NBomber.Contracts
 open NBomber.Contracts.Stats
 
@@ -29,11 +27,11 @@ type InfluxDbSinkConfig = {
 
         { Url = url; Database = database; UserName = userName; Password = password }
 
-type InfluxDBSink(metricsRoot: IMetricsRoot) =
+type InfluxDBSink(influxClient: InfluxDBClient, customTags: Dictionary<string,string>) =
 
     let mutable _logger = Unchecked.defaultof<ILogger>
-    let mutable _metricsRoot = metricsRoot
     let mutable _context = Unchecked.defaultof<IBaseContext>
+    let mutable _influxClient = influxClient
 
     let getOperationName (operation: OperationType) =
         match operation with
@@ -41,69 +39,78 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
         | OperationType.Complete -> "complete"
         | _                      -> "bombing"
 
-    let saveScenarioStats (stats: ScenarioStats) =
-        let operation = getOperationName(stats.CurrentOperation)
+    let mapToPoints (scnStats: ScenarioStats) =
+        let operation = getOperationName(scnStats.CurrentOperation)
         let nodeType = _context.NodeInfo.NodeType.ToString()
         let testInfo = _context.TestInfo
-        let simulation = stats.LoadSimulationStats
+        let simulation = scnStats.LoadSimulationStats
 
-        stats.StepStats
-        |> Array.iter(fun s ->
-            try
-                let okR = s.Ok.Request
-                let okL = s.Ok.Latency
-                let okD = s.Ok.DataTransfer
+        let addCustomTags (tags: Dictionary<string,string>) (point: PointData) =
+            for tag in tags
+                do point.Tag(tag.Key, tag.Value) |> ignore
+            point
 
-                let fR = s.Fail.Request
-                let fL = s.Fail.Latency
-                let fD = s.Fail.DataTransfer
+        let addScenarioInfoTags (stepName) (point: PointData) =
+            point
+                .Tag("node_type", nodeType)
+                .Tag("test_suite", testInfo.TestSuite)
+                .Tag("test_name", testInfo.TestName)
+                .Tag("scenario", scnStats.ScenarioName)
+                .Tag("step", stepName)
+                .Tag("operation", operation)
+                .Tag("simulation.name", simulation.SimulationName)
 
-                [("Ok.Request.Count", float okR.Count); ("Ok.Request.RPS", float okR.RPS)
-                 ("Ok.Latency.Min", float okL.MinMs); ("Ok.Latency.Mean", float okL.MeanMs)
-                 ("Ok.Latency.Max", float okL.MaxMs); ("Ok.Latency.StdDev", float okL.StdDev)
-                 ("Ok.Latency.Percent50", float okL.Percent50); ("Ok.Latency.Percent75", float okL.Percent75)
-                 ("Ok.Latency.Percent95", float okL.Percent95); ("Ok.Latency.Percent99", float okL.Percent99)
-                 ("Ok.DataTransfer.Min", float okD.MinBytes); ("Ok.DataTransfer.Mean", float okD.MeanBytes)
-                 ("Ok.DataTransfer.Max", float okD.MaxBytes); ("Ok.DataTransfer.AllMb", okD.AllBytes |> mb |> float)
+        scnStats.StepStats
+        |> Array.collect (fun stepStats ->
+            let okR = stepStats.Ok.Request
+            let okL = stepStats.Ok.Latency
+            let okD = stepStats.Ok.DataTransfer
 
-                 ("Fail.Request.Count", float fR.Count); ("Fail.Request.RPS", float fR.RPS)
-                 ("Fail.Latency.Min", float fL.MinMs); ("Fail.Latency.Mean", float fL.MeanMs)
-                 ("Fail.Latency.Max", float fL.MaxMs); ("Fail.Latency.StdDev", float fL.StdDev)
-                 ("Fail.Latency.Percent50", float fL.Percent50); ("Fail.Latency.Percent75", float fL.Percent75)
-                 ("Fail.Latency.Percent95", float fL.Percent95); ("Fail.Latency.Percent99", float fL.Percent99)
-                 ("Fail.DataTransfer.Min", float fD.MinBytes); ("Fail.DataTransfer.Mean", float fD.MeanBytes)
-                 ("Fail.DataTransfer.Max", float fD.MaxBytes); ("Fail.DataTransfer.AllMb", fD.AllBytes |> mb |> float)
+            let fR = stepStats.Fail.Request
+            let fL = stepStats.Fail.Latency
+            let fD = stepStats.Fail.DataTransfer
 
-                 ("simulation.value", float simulation.Value)]
+            [|("nbomber__all.request.count", $"{stepStats.Ok.Request.Count + stepStats.Fail.Request.Count}")
+              ("nbomber__all.datatransfer.all", $"{stepStats.Ok.DataTransfer.AllBytes + stepStats.Fail.DataTransfer.AllBytes}")
 
-                |> List.iter(fun (name, value) ->
-                    let metric =
-                        GaugeOptions(
-                            Name = name,
-                            Context = "NBomber",
-                            Tags = MetricTags([|"node_type"; "test_suite"; "test_name"
-                                                "scenario"; "step"; "operation"; "simulation.name"|],
-                                              [|nodeType; testInfo.TestSuite; testInfo.TestName
-                                                stats.ScenarioName; s.StepName; operation; simulation.SimulationName|]))
+              ("nbomber__ok.request.count", $"{okR.Count}"); ("nbomber__ok.request.rps", $"{okR.RPS}")
+              ("nbomber__ok.latency.min", $"{okL.MinMs}"); ("nbomber__ok.latency.mean", $"{okL.MeanMs}")
+              ("nbomber__ok.latency.max", $"{okL.MaxMs}"); ("nbomber__ok.latency.stddev", $"{okL.StdDev}")
+              ("nbomber__ok.latency.percent50", $"{okL.Percent50}"); ("nbomber__ok.latency.percent75", $"{okL.Percent75}")
+              ("nbomber__ok.latency.percent95", $"{okL.Percent95}"); ("nbomber__ok.latency.percent99", $"{okL.Percent99}")
+              ("nbomber__ok.datatransfer.min", $"{okD.MinBytes}"); ("nbomber__ok.datatransfer.mean", $"{okD.MeanBytes}")
+              ("nbomber__ok.datatransfer.max", $"{okD.MaxBytes}"); ("nbomber__ok.datatransfer.all", $"{okD.AllBytes}")
 
-                    _metricsRoot.Measure.Gauge.SetValue(metric, value)
-                )
-            with
-            | ex -> _logger.Error(ex.ToString())
+              ("nbomber__fail.request.count", $"{fR.Count}"); ("nbomber__fail.request.rps", $"{fR.RPS}")
+              ("nbomber__fail.latency.min", $"{fL.MinMs}"); ("nbomber__fail.latency.mean", $"{fL.MeanMs}")
+              ("nbomber__fail.latency.max", $"{fL.MaxMs}"); ("nbomber__fail.latency.stddev", $"{fL.StdDev}")
+              ("nbomber__fail.latency.percent50", $"{fL.Percent50}"); ("nbomber__fail.latency.percent75", $"{fL.Percent75}")
+              ("nbomber__fail.latency.percent95", $"{fL.Percent95}"); ("nbomber__fail.latency.percent99", $"{fL.Percent99}")
+              ("nbomber__fail.datatransfer.min", $"{fD.MinBytes}"); ("nbomber__fail.datatransfer.mean", $"{fD.MeanBytes}")
+              ("nbomber__fail.datatransfer.max", $"{fD.MaxBytes}"); ("nbomber__fail.datatransfer.all", $"{fD.AllBytes}")
+
+              ("nbomber__simulation.value", $"{simulation.Value}")|]
+
+            |> Array.map (fun (name,value) ->
+                PointData.Measurement(name).Field("value", value)
+                |> addScenarioInfoTags stepStats.StepName
+                |> addCustomTags customTags
+            )
         )
 
-    static let createMetricsRoot (config: InfluxDbSinkConfig) =
-        let options = MetricsReportingInfluxDbOptions()
-        options.InfluxDb.BaseUri <- Uri(config.Url)
-        options.InfluxDb.Database <- config.Database
-        options.InfluxDb.UserName <- config.UserName
-        options.InfluxDb.Password <- config.Password
-        MetricsBuilder().Report.ToInfluxDb(options).Build()
+    static let createClientFromConfig (config: InfluxDbSinkConfig) =
+        InfluxDBClientFactory.CreateV1(
+            config.Url,
+            config.UserName,
+            config.Password.ToCharArray(),
+            config.Database,
+            retentionPolicy = "autogen"
+        )
 
     new (config: InfluxDbSinkConfig) =
-        new InfluxDBSink(createMetricsRoot config)
+        new InfluxDBSink(createClientFromConfig config, Dictionary<_,_>())
 
-    new() = new InfluxDBSink(null)
+    new() = new InfluxDBSink(null, Dictionary<_,_>())
 
     interface IReportingSink with
         member x.SinkName = "NBomber.Sinks.InfluxDB"
@@ -114,13 +121,13 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
 
             infraConfig
             |> Option.ofObj
-            |> Option.map(fun x -> x.GetSection("InfluxDBSink").Get<InfluxDbSinkConfig>())
-            |> Option.bind(fun x ->
+            |> Option.map (fun x -> x.GetSection("InfluxDBSink").Get<InfluxDbSinkConfig>())
+            |> Option.bind (fun x ->
                 if not(x |> box |> isNull) then Some x
                 else None
             )
-            |> Option.iter(fun config ->
-                _metricsRoot <- createMetricsRoot config
+            |> Option.iter (fun config ->
+                _influxClient <- createClientFromConfig config
             )
 
             Task.CompletedTask
@@ -128,8 +135,10 @@ type InfluxDBSink(metricsRoot: IMetricsRoot) =
         member x.Start() = Task.CompletedTask
 
         member x.SaveRealtimeStats(stats: ScenarioStats[]) =
-            stats |> Array.iter(saveScenarioStats)
-            Task.WhenAll(_metricsRoot.ReportRunner.RunAllAsync())
+            let writeApi = influxClient.GetWriteApiAsync()
+            stats
+            |> Array.collect mapToPoints
+            |> writeApi.WritePointsAsync
 
         member x.SaveFinalStats(stats: NodeStats[]) = Task.CompletedTask
         member x.Stop() = Task.CompletedTask

@@ -23,13 +23,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="NBomber" Version="2.0.0" />
-        <PackageReference Include="App.Metrics" Version="3.2.0" />
-        <PackageReference Include="App.Metrics.Reporting.InfluxDB" Version="3.2.0" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Update="FSharp.Core" Version="5.0.0" />
+        <PackageReference Include="InfluxDB.Client" Version="3.1.0" />
+        <PackageReference Include="NBomber" Version="2.1.2" />        
     </ItemGroup>
 
 </Project>
