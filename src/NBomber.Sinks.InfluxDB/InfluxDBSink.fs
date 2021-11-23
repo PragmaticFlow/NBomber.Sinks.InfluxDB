@@ -13,25 +13,32 @@ open NBomber.Contracts
 open NBomber.Contracts.Stats
 
 [<CLIMutable>]
+type CustomTag = { Key: string; Value: string }
+
+[<CLIMutable>]
 type InfluxDbSinkConfig = {
     Url: string
     Database: string
     UserName: string
     Password: string
+    CustomTags: CustomTag[]
 } with
     [<CompiledName("Create")>]
     static member create(url: string,
                          database: string,
                          [<Optional;DefaultParameterValue("")>] userName: string,
-                         [<Optional;DefaultParameterValue("")>] password: string) =
+                         [<Optional;DefaultParameterValue("")>] password: string,
+                         [<Optional;DefaultParameterValue(null:CustomTag[])>] customTags: CustomTag[]) =
 
-        { Url = url; Database = database; UserName = userName; Password = password }
+        let tags = if isNull customTags then Array.empty else customTags
+        { Url = url; Database = database; UserName = userName; Password = password; CustomTags = tags }
 
-type InfluxDBSink(influxClient: InfluxDBClient, customTags: Dictionary<string,string>) =
+type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
 
     let mutable _logger = Unchecked.defaultof<ILogger>
     let mutable _context = Unchecked.defaultof<IBaseContext>
-    let mutable _influxClient = influxClient
+    let mutable _influxClient = influxClient |> Option.ofObj
+    let mutable _customTags = if isNull customTags then Array.empty else customTags
 
     let getOperationName (operation: OperationType) =
         match operation with
@@ -39,22 +46,25 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: Dictionary<string,st
         | OperationType.Complete -> "complete"
         | _                      -> "bombing"
 
-    let mapToPoints (scnStats: ScenarioStats) =
-        let operation = getOperationName(scnStats.CurrentOperation)
-        let nodeType = _context.NodeInfo.NodeType.ToString()
-        let testInfo = _context.TestInfo
-        let simulation = scnStats.LoadSimulationStats
+    let addCustomTags (tags: CustomTag[]) (point: PointData) =
+        tags
+        |> Array.fold (fun (p:PointData) t -> p.Tag(t.Key, t.Value)) point
 
-        let addCustomTags (tags: Dictionary<string,string>) (point: PointData) =
-            for tag in tags
-                do point.Tag(tag.Key, tag.Value) |> ignore
-            point
+    let addTestInfoTags (context: IBaseContext) (point: PointData) =
+        let nodeType = context.NodeInfo.NodeType.ToString()
+        let testInfo = context.TestInfo
+
+        point
+            .Tag("node_type", nodeType)
+            .Tag("test_suite", testInfo.TestSuite)
+            .Tag("test_name", testInfo.TestName)
+
+    let mapToPoints (context: IBaseContext) (tags: CustomTag[]) (scnStats: ScenarioStats) =
+        let operation = getOperationName(scnStats.CurrentOperation)
+        let simulation = scnStats.LoadSimulationStats
 
         let addScenarioInfoTags (stepName) (point: PointData) =
             point
-                .Tag("node_type", nodeType)
-                .Tag("test_suite", testInfo.TestSuite)
-                .Tag("test_name", testInfo.TestName)
                 .Tag("scenario", scnStats.ScenarioName)
                 .Tag("step", stepName)
                 .Tag("operation", operation)
@@ -93,8 +103,9 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: Dictionary<string,st
 
             |> Array.map (fun (name,value) ->
                 PointData.Measurement(name).Field("value", value)
+                |> addTestInfoTags context
                 |> addScenarioInfoTags stepStats.StepName
-                |> addCustomTags customTags
+                |> addCustomTags tags
             )
         )
 
@@ -108,14 +119,17 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: Dictionary<string,st
         )
 
     new (config: InfluxDbSinkConfig) =
-        new InfluxDBSink(createClientFromConfig config, Dictionary<_,_>())
+        new InfluxDBSink(createClientFromConfig config, Array.empty)
 
-    new() = new InfluxDBSink(null, Dictionary<_,_>())
+    new() = new InfluxDBSink(null, Array.empty)
+
+    member _.InfluxClient = _influxClient |> Option.defaultValue(Unchecked.defaultof<InfluxDBClient>)
+    member _.CustomTags = _customTags
 
     interface IReportingSink with
-        member x.SinkName = "NBomber.Sinks.InfluxDB"
+        member _.SinkName = "NBomber.Sinks.InfluxDB"
 
-        member x.Init(context: IBaseContext, infraConfig: IConfiguration) =
+        member _.Init(context: IBaseContext, infraConfig: IConfiguration) =
             _logger <- context.Logger.ForContext<InfluxDBSink>()
             _context <- context
 
@@ -127,19 +141,47 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: Dictionary<string,st
                 else None
             )
             |> Option.iter (fun config ->
-                _influxClient <- createClientFromConfig config
+                _influxClient <- Some (createClientFromConfig config)
+                _customTags <- if not (isNull config.CustomTags) then config.CustomTags else _customTags
             )
 
             Task.CompletedTask
 
-        member x.Start() = Task.CompletedTask
+        member _.Start() =
+            _influxClient
+            |> Option.map(fun client ->
+                let writeApi = client.GetWriteApiAsync()
 
-        member x.SaveRealtimeStats(stats: ScenarioStats[]) =
-            let writeApi = influxClient.GetWriteApiAsync()
-            stats
-            |> Array.collect mapToPoints
-            |> writeApi.WritePointsAsync
+                PointData.Measurement("nbomber__start_session").Field("session_id", _context.TestInfo.SessionId)
+                |> addTestInfoTags _context
+                |> addCustomTags _customTags
+                |> writeApi.WritePointAsync
+            )
+            |> Option.defaultValue Task.CompletedTask
 
-        member x.SaveFinalStats(stats: NodeStats[]) = Task.CompletedTask
-        member x.Stop() = Task.CompletedTask
-        member x.Dispose() = ()
+        member _.SaveRealtimeStats(stats: ScenarioStats[]) =
+            _influxClient
+            |> Option.map(fun client ->
+                let writeApi = client.GetWriteApiAsync()
+
+                stats
+                |> Array.collect (mapToPoints _context _customTags)
+                |> writeApi.WritePointsAsync
+            )
+            |> Option.defaultValue Task.CompletedTask
+
+        member _.SaveFinalStats(stats: NodeStats[]) = Task.CompletedTask
+
+        member _.Stop() =
+            _influxClient
+            |> Option.map(fun client ->
+                let writeApi = client.GetWriteApiAsync()
+
+                PointData.Measurement("nbomber__stop_session").Field("session_id", _context.TestInfo.SessionId)
+                |> addTestInfoTags _context
+                |> addCustomTags _customTags
+                |> writeApi.WritePointAsync
+            )
+            |> Option.defaultValue Task.CompletedTask
+
+        member _.Dispose() = ()

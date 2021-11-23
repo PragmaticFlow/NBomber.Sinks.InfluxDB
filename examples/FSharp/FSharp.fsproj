@@ -10,6 +10,7 @@
         <None Include="infra-config.json">
           <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
+        <Content Include="docker-compose.yaml" />
     </ItemGroup>
 
     <ItemGroup>

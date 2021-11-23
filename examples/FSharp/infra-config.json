@@ -3,6 +3,7 @@
         "Url": "http://localhost:8086",
         "Database": "default",
         "UserName": "",
-        "Password": ""
+        "Password": "",
+        "CustomTags": [{"Key": "environment", "Value": "linux"}]
     }
 }
