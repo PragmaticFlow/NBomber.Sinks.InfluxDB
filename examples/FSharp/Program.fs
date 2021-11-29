@@ -9,7 +9,17 @@ open NBomber.Sinks.InfluxDB
 [<EntryPoint>]
 let main argv =
 
-    let step = Step.create("step_1", fun context -> task {
+    let step1 = Step.create("step_1", fun context -> task {
+
+        do! Task.Delay(milliseconds 100)
+
+        // this message will be saved to elastic search
+        context.Logger.Debug("hello from NBomber")
+
+        return Response.ok()
+    })
+
+    let step2 = Step.create("step_2", fun context -> task {
 
         do! Task.Delay(milliseconds 100)
 
@@ -21,9 +31,9 @@ let main argv =
 
     use influxDb = new InfluxDBSink()
 
-    Scenario.create "hello_world_scenario" [step]
+    Scenario.create "hello_world_scenario" [step1; step2]
     |> Scenario.withoutWarmUp
-    |> Scenario.withLoadSimulations [KeepConstant(1, minutes 5)]
+    |> Scenario.withLoadSimulations [KeepConstant(10, minutes 5)]
     |> NBomberRunner.registerScenario
     |> NBomberRunner.withTestSuite "reporting"
     |> NBomberRunner.withTestName "influx_test"
