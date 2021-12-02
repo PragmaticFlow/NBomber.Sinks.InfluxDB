@@ -46,71 +46,77 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
         | _                      -> "bombing"
 
     let addCustomTags (tags: CustomTag[]) (point: PointData) =
-        tags
-        |> Array.fold (fun (p:PointData) t -> p.Tag(t.Key, t.Value)) point
+        tags |> Array.fold (fun (p:PointData) t -> p.Tag(t.Key, t.Value)) point
 
     let addTestInfoTags (context: IBaseContext) (point: PointData) =
         let nodeType = context.NodeInfo.NodeType.ToString()
         let testInfo = context.TestInfo
-
         point
             .Tag("node_type", nodeType)
             .Tag("test_suite", testInfo.TestSuite)
             .Tag("test_name", testInfo.TestName)
 
-    let mapLatencyCount (context: IBaseContext) (tags: CustomTag[]) (scnStats: ScenarioStats) =
-
+    let addScenarioInfoTags (scnStats: ScenarioStats) (stepName: string) (point: PointData) =
         let operation = getOperationName(scnStats.CurrentOperation)
-
-        PointData.Measurement("nbomber")
-            .Field("latency_count.less_or_eq_800", int64 scnStats.LatencyCount.LessOrEq800)
-            .Field("latency_count.more_800_less_1200", int64 scnStats.LatencyCount.More800Less1200)
-            .Field("latency_count.more_or_eq_1200", int64 scnStats.LatencyCount.MoreOrEq1200)
+        point
             .Tag("scenario", scnStats.ScenarioName)
+            .Tag("step", stepName)
             .Tag("operation", operation)
-        |> addTestInfoTags context
-        |> addCustomTags tags
 
-    let mapStatusCodes (context: IBaseContext) (tags: CustomTag[]) (scnStats: ScenarioStats) =
+    let mapLatencyCount (context: IBaseContext) (tags: CustomTag[]) (scnStats: ScenarioStats) =
+        scnStats.StepStats
+        |> Array.map (fun step ->
+            let ok = step.Ok.Latency.LatencyCount
+            let fail = step.Fail.Latency.LatencyCount
+            let less800 = ok.LessOrEq800 + fail.LessOrEq800
+            let more800Less1200 = ok.More800Less1200 + fail.More800Less1200
+            let more1200 = ok.MoreOrEq1200 + fail.MoreOrEq1200
 
-        let operation = getOperationName(scnStats.CurrentOperation)
-
-        scnStats.StatusCodes
-        |> Array.map (fun x ->
             PointData
                 .Measurement("nbomber")
-                .Tag("scenario", scnStats.ScenarioName)
-                .Tag("operation", operation)
-                .Tag("status_code", x.StatusCode.ToString())
-                .Field("status_code.count", int64 x.Count)
-                .Field("status_code.is_error", x.IsError)
+                .Field("latency_count.less_or_eq_800", int64 less800)
+                .Field("latency_count.more_800_less_1200", int64 more800Less1200)
+                .Field("latency_count.more_or_eq_1200", int64 more1200)
             |> addTestInfoTags context
+            |> addScenarioInfoTags scnStats step.StepName
             |> addCustomTags tags
         )
 
+    let mapStatusCodes (context: IBaseContext) (tags: CustomTag[]) (scnStats: ScenarioStats) =
+        scnStats.StepStats
+        |> Array.map (fun x -> x.StepName, x.Ok.StatusCodes |> Array.append x.Fail.StatusCodes)
+        |> Array.collect (fun (stepName, statusCodes) ->
+            statusCodes
+            |> Array.map (fun x ->
+                PointData
+                    .Measurement("nbomber")
+                    .Tag("status_code", x.StatusCode.ToString())
+                    .Field("status_code.count", int64 x.Count)
+                    .Field("status_code.is_error", x.IsError)
+                |> addTestInfoTags context
+                |> addScenarioInfoTags scnStats stepName
+                |> addCustomTags tags
+            )
+        )
+
     let mapScenarioStats (context: IBaseContext) (tags: CustomTag[]) (scnStats: ScenarioStats) =
-        let operation = getOperationName(scnStats.CurrentOperation)
         let simulation = scnStats.LoadSimulationStats
 
-        let addScenarioInfoTags (stepName) (point: PointData) =
-            point
-                .Tag("scenario", scnStats.ScenarioName)
-                .Tag("step", stepName)
-                .Tag("operation", operation)
-                .Tag("simulation.name", simulation.SimulationName)
+        let addSimulationNameTag (point: PointData) =
+            point.Tag("simulation.name", simulation.SimulationName)
 
         scnStats.StepStats
-        |> Array.map (fun stepStats ->
-            let okR = stepStats.Ok.Request
-            let okL = stepStats.Ok.Latency
-            let okD = stepStats.Ok.DataTransfer
+        |> Array.map (fun step ->
+            let okR = step.Ok.Request
+            let okL = step.Ok.Latency
+            let okD = step.Ok.DataTransfer
 
-            let fR = stepStats.Fail.Request
-            let fL = stepStats.Fail.Latency
-            let fD = stepStats.Fail.DataTransfer
+            let fR = step.Fail.Request
+            let fL = step.Fail.Latency
+            let fD = step.Fail.DataTransfer
 
-            [|("all.request.count", decimal stepStats.Ok.Request.Count + decimal stepStats.Fail.Request.Count)
-              ("all.datatransfer.all", decimal stepStats.Ok.DataTransfer.AllBytes + decimal stepStats.Fail.DataTransfer.AllBytes)
+            [|("all.request.count", decimal step.Ok.Request.Count + decimal step.Fail.Request.Count)
+              ("all.datatransfer.all", decimal step.Ok.DataTransfer.AllBytes + decimal step.Fail.DataTransfer.AllBytes)
 
               ("ok.request.count", decimal okR.Count); ("ok.request.rps", decimal okR.RPS)
               ("ok.latency.min", decimal okL.MinMs); ("ok.latency.mean", decimal okL.MeanMs)
@@ -136,7 +142,8 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
 
             |> Array.fold (fun (p:PointData) (name,value) -> p.Field(name, value)) (PointData.Measurement "nbomber")
             |> addTestInfoTags context
-            |> addScenarioInfoTags stepStats.StepName
+            |> addScenarioInfoTags scnStats step.StepName
+            |> addSimulationNameTag
             |> addCustomTags tags
         )
 
@@ -215,7 +222,7 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
                 let writeLatencyCount =
                     stats
                     |> Array.collect (fun x -> x.ScenarioStats)
-                    |> Array.map (mapLatencyCount _context _customTags)
+                    |> Array.collect (mapLatencyCount _context _customTags)
                     |> writeApi.WritePointsAsync
 
                 let writeStatusCodes =
