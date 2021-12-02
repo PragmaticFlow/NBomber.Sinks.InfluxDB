@@ -1,6 +1,5 @@
 namespace NBomber.Sinks.InfluxDB
 
-open System.Collections.Generic
 open System.Runtime.InteropServices
 open System.Threading.Tasks
 
@@ -59,7 +58,37 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             .Tag("test_suite", testInfo.TestSuite)
             .Tag("test_name", testInfo.TestName)
 
-    let mapToPoints (context: IBaseContext) (tags: CustomTag[]) (scnStats: ScenarioStats) =
+    let mapLatencyCount (context: IBaseContext) (tags: CustomTag[]) (scnStats: ScenarioStats) =
+
+        let operation = getOperationName(scnStats.CurrentOperation)
+
+        PointData.Measurement("nbomber")
+            .Field("latency_count.less_or_eq_800", int64 scnStats.LatencyCount.LessOrEq800)
+            .Field("latency_count.more_800_less_1200", int64 scnStats.LatencyCount.More800Less1200)
+            .Field("latency_count.more_or_eq_1200", int64 scnStats.LatencyCount.MoreOrEq1200)
+            .Tag("scenario", scnStats.ScenarioName)
+            .Tag("operation", operation)
+        |> addTestInfoTags context
+        |> addCustomTags tags
+
+    let mapStatusCodes (context: IBaseContext) (tags: CustomTag[]) (scnStats: ScenarioStats) =
+
+        let operation = getOperationName(scnStats.CurrentOperation)
+
+        scnStats.StatusCodes
+        |> Array.map (fun x ->
+            PointData
+                .Measurement("nbomber")
+                .Tag("scenario", scnStats.ScenarioName)
+                .Tag("operation", operation)
+                .Field("status_code.value", int64 x.StatusCode)
+                .Field("status_code.count", int64 x.Count)
+                .Field("status_code.is_error", x.IsError)
+            |> addTestInfoTags context
+            |> addCustomTags tags
+        )
+
+    let mapScenarioStats (context: IBaseContext) (tags: CustomTag[]) (scnStats: ScenarioStats) =
         let operation = getOperationName(scnStats.CurrentOperation)
         let simulation = scnStats.LoadSimulationStats
 
@@ -80,29 +109,33 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             let fL = stepStats.Fail.Latency
             let fD = stepStats.Fail.DataTransfer
 
-            [|("nbomber__all.request.count", $"{stepStats.Ok.Request.Count + stepStats.Fail.Request.Count}")
-              ("nbomber__all.datatransfer.all", $"{stepStats.Ok.DataTransfer.AllBytes + stepStats.Fail.DataTransfer.AllBytes}")
+            [|("all.request.count", $"{stepStats.Ok.Request.Count + stepStats.Fail.Request.Count}")
+              ("all.datatransfer.all", $"{stepStats.Ok.DataTransfer.AllBytes + stepStats.Fail.DataTransfer.AllBytes}")
 
-              ("nbomber__ok.request.count", $"{okR.Count}"); ("nbomber__ok.request.rps", $"{okR.RPS}")
-              ("nbomber__ok.latency.min", $"{okL.MinMs}"); ("nbomber__ok.latency.mean", $"{okL.MeanMs}")
-              ("nbomber__ok.latency.max", $"{okL.MaxMs}"); ("nbomber__ok.latency.stddev", $"{okL.StdDev}")
-              ("nbomber__ok.latency.percent50", $"{okL.Percent50}"); ("nbomber__ok.latency.percent75", $"{okL.Percent75}")
-              ("nbomber__ok.latency.percent95", $"{okL.Percent95}"); ("nbomber__ok.latency.percent99", $"{okL.Percent99}")
-              ("nbomber__ok.datatransfer.min", $"{okD.MinBytes}"); ("nbomber__ok.datatransfer.mean", $"{okD.MeanBytes}")
-              ("nbomber__ok.datatransfer.max", $"{okD.MaxBytes}"); ("nbomber__ok.datatransfer.all", $"{okD.AllBytes}")
+              ("ok.request.count", $"{okR.Count}"); ("ok.request.rps", $"{okR.RPS}")
+              ("ok.latency.min", $"{okL.MinMs}"); ("ok.latency.mean", $"{okL.MeanMs}")
+              ("ok.latency.max", $"{okL.MaxMs}"); ("ok.latency.stddev", $"{okL.StdDev}")
+              ("ok.latency.percent50", $"{okL.Percent50}"); ("ok.latency.percent75", $"{okL.Percent75}")
+              ("ok.latency.percent95", $"{okL.Percent95}"); ("ok.latency.percent99", $"{okL.Percent99}")
+              ("ok.datatransfer.min", $"{okD.MinBytes}"); ("ok.datatransfer.mean", $"{okD.MeanBytes}")
+              ("ok.datatransfer.max", $"{okD.MaxBytes}"); ("ok.datatransfer.all", $"{okD.AllBytes}")
+              ("ok.datatransfer.percent50", $"{okD.Percent50}"); ("ok.datatransfer.percent75", $"{okD.Percent75}")
+              ("ok.datatransfer.percent95", $"{okD.Percent95}"); ("ok.datatransfer.percent99", $"{okD.Percent99}")
 
-              ("nbomber__fail.request.count", $"{fR.Count}"); ("nbomber__fail.request.rps", $"{fR.RPS}")
-              ("nbomber__fail.latency.min", $"{fL.MinMs}"); ("nbomber__fail.latency.mean", $"{fL.MeanMs}")
-              ("nbomber__fail.latency.max", $"{fL.MaxMs}"); ("nbomber__fail.latency.stddev", $"{fL.StdDev}")
-              ("nbomber__fail.latency.percent50", $"{fL.Percent50}"); ("nbomber__fail.latency.percent75", $"{fL.Percent75}")
-              ("nbomber__fail.latency.percent95", $"{fL.Percent95}"); ("nbomber__fail.latency.percent99", $"{fL.Percent99}")
-              ("nbomber__fail.datatransfer.min", $"{fD.MinBytes}"); ("nbomber__fail.datatransfer.mean", $"{fD.MeanBytes}")
-              ("nbomber__fail.datatransfer.max", $"{fD.MaxBytes}"); ("nbomber__fail.datatransfer.all", $"{fD.AllBytes}")
+              ("fail.request.count", $"{fR.Count}"); ("fail.request.rps", $"{fR.RPS}")
+              ("fail.latency.min", $"{fL.MinMs}"); ("fail.latency.mean", $"{fL.MeanMs}")
+              ("fail.latency.max", $"{fL.MaxMs}"); ("fail.latency.stddev", $"{fL.StdDev}")
+              ("fail.latency.percent50", $"{fL.Percent50}"); ("fail.latency.percent75", $"{fL.Percent75}")
+              ("fail.latency.percent95", $"{fL.Percent95}"); ("fail.latency.percent99", $"{fL.Percent99}")
+              ("fail.datatransfer.min", $"{fD.MinBytes}"); ("fail.datatransfer.mean", $"{fD.MeanBytes}")
+              ("fail.datatransfer.max", $"{fD.MaxBytes}"); ("fail.datatransfer.all", $"{fD.AllBytes}")
+              ("fail.datatransfer.percent50", $"{fD.Percent50}"); ("fail.datatransfer.percent75", $"{fD.Percent75}")
+              ("fail.datatransfer.percent95", $"{fD.Percent95}"); ("fail.datatransfer.percent99", $"{fD.Percent99}")
 
-              ("nbomber__simulation.value", $"{simulation.Value}")|]
+              ("simulation.value", $"{simulation.Value}")|]
 
             |> Array.map (fun (name,value) ->
-                PointData.Measurement(name).Field("value", value)
+                PointData.Measurement("nbomber").Field(name, value)
                 |> addTestInfoTags context
                 |> addScenarioInfoTags stepStats.StepName
                 |> addCustomTags tags
@@ -152,7 +185,7 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             |> Option.map(fun client ->
                 let writeApi = client.GetWriteApiAsync()
 
-                PointData.Measurement("nbomber__start_session").Field("session_id", _context.TestInfo.SessionId)
+                PointData.Measurement("nbomber").Field("start_session.session_id", _context.TestInfo.SessionId)
                 |> addTestInfoTags _context
                 |> addCustomTags _customTags
                 |> writeApi.WritePointAsync
@@ -165,19 +198,44 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
                 let writeApi = client.GetWriteApiAsync()
 
                 stats
-                |> Array.collect (mapToPoints _context _customTags)
+                |> Array.collect (mapScenarioStats _context _customTags)
                 |> writeApi.WritePointsAsync
             )
             |> Option.defaultValue Task.CompletedTask
 
-        member _.SaveFinalStats(stats: NodeStats[]) = Task.CompletedTask
+        member _.SaveFinalStats(stats: NodeStats[]) =
+            _influxClient
+            |> Option.map(fun client ->
+                let writeApi = client.GetWriteApiAsync()
+
+                let writeFinalStats =
+                    stats
+                    |> Array.collect (fun x -> x.ScenarioStats)
+                    |> Array.collect (mapScenarioStats _context _customTags)
+                    |> writeApi.WritePointsAsync
+
+                let writeLatencyCount =
+                    stats
+                    |> Array.collect (fun x -> x.ScenarioStats)
+                    |> Array.map (mapLatencyCount _context _customTags)
+                    |> writeApi.WritePointsAsync
+
+                let writeStatusCodes =
+                    stats
+                    |> Array.collect (fun x -> x.ScenarioStats)
+                    |> Array.collect (mapStatusCodes _context _customTags)
+                    |> writeApi.WritePointsAsync
+
+                Task.WhenAll(writeFinalStats, writeLatencyCount, writeStatusCodes)
+            )
+            |> Option.defaultValue Task.CompletedTask
 
         member _.Stop() =
             _influxClient
             |> Option.map(fun client ->
                 let writeApi = client.GetWriteApiAsync()
 
-                PointData.Measurement("nbomber__stop_session").Field("session_id", _context.TestInfo.SessionId)
+                PointData.Measurement("nbomber").Field("stop_session.session_id", _context.TestInfo.SessionId)
                 |> addTestInfoTags _context
                 |> addCustomTags _customTags
                 |> writeApi.WritePointAsync
