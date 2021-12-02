@@ -1,8 +1,6 @@
 ﻿open System.Threading.Tasks
 open FSharp.Control.Tasks.NonAffine
 
-open InfluxDB.Client
-open InfluxDB.Client.Writes
 open NBomber
 open NBomber.Contracts
 open NBomber.FSharp
@@ -10,28 +8,6 @@ open NBomber.Sinks.InfluxDB
 
 [<EntryPoint>]
 let main argv =
-
-//    let factory = InfluxDBClientFactory.CreateV1("http://localhost:8086", "admin", "admin".ToCharArray(), "nbomber", retentionPolicy = "autogen")
-//    let api = factory.GetWriteApi()
-//
-//    [0..10]
-//    |> List.map (fun x ->
-//        PointData.Measurement("nbomber")
-//            .Tag("scenario", "hello_world_scenario")
-//            .Tag("operation", "complete")
-//            .Tag("test_suite", "reporting")
-//            .Tag("test_name", "influx_test")
-//            .Tag("status_code", $"{x * 10}")
-//
-//            //.Field("status_code.value", int64 x * 10L)
-//            .Field("status_code.count", int64 x)
-//            .Field("status_code.is_error", true)
-//    )
-//    |> List.iter (fun x ->
-//        //Task.Delay(seconds 1).Wait()
-//        api.WritePoint x
-//    )
-
 
     let step1 = Step.create("step_1", fun context -> task {
 
