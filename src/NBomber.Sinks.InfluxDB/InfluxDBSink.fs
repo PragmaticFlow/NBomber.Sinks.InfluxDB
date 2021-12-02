@@ -81,7 +81,7 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
                 .Measurement("nbomber")
                 .Tag("scenario", scnStats.ScenarioName)
                 .Tag("operation", operation)
-                .Field("status_code.value", int64 x.StatusCode)
+                .Tag("status_code", x.StatusCode.ToString())
                 .Field("status_code.count", int64 x.Count)
                 .Field("status_code.is_error", x.IsError)
             |> addTestInfoTags context
@@ -100,7 +100,7 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
                 .Tag("simulation.name", simulation.SimulationName)
 
         scnStats.StepStats
-        |> Array.collect (fun stepStats ->
+        |> Array.map (fun stepStats ->
             let okR = stepStats.Ok.Request
             let okL = stepStats.Ok.Latency
             let okD = stepStats.Ok.DataTransfer
@@ -109,37 +109,35 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             let fL = stepStats.Fail.Latency
             let fD = stepStats.Fail.DataTransfer
 
-            [|("all.request.count", $"{stepStats.Ok.Request.Count + stepStats.Fail.Request.Count}")
-              ("all.datatransfer.all", $"{stepStats.Ok.DataTransfer.AllBytes + stepStats.Fail.DataTransfer.AllBytes}")
+            [|("all.request.count", decimal stepStats.Ok.Request.Count + decimal stepStats.Fail.Request.Count)
+              ("all.datatransfer.all", decimal stepStats.Ok.DataTransfer.AllBytes + decimal stepStats.Fail.DataTransfer.AllBytes)
 
-              ("ok.request.count", $"{okR.Count}"); ("ok.request.rps", $"{okR.RPS}")
-              ("ok.latency.min", $"{okL.MinMs}"); ("ok.latency.mean", $"{okL.MeanMs}")
-              ("ok.latency.max", $"{okL.MaxMs}"); ("ok.latency.stddev", $"{okL.StdDev}")
-              ("ok.latency.percent50", $"{okL.Percent50}"); ("ok.latency.percent75", $"{okL.Percent75}")
-              ("ok.latency.percent95", $"{okL.Percent95}"); ("ok.latency.percent99", $"{okL.Percent99}")
-              ("ok.datatransfer.min", $"{okD.MinBytes}"); ("ok.datatransfer.mean", $"{okD.MeanBytes}")
-              ("ok.datatransfer.max", $"{okD.MaxBytes}"); ("ok.datatransfer.all", $"{okD.AllBytes}")
-              ("ok.datatransfer.percent50", $"{okD.Percent50}"); ("ok.datatransfer.percent75", $"{okD.Percent75}")
-              ("ok.datatransfer.percent95", $"{okD.Percent95}"); ("ok.datatransfer.percent99", $"{okD.Percent99}")
+              ("ok.request.count", decimal okR.Count); ("ok.request.rps", decimal okR.RPS)
+              ("ok.latency.min", decimal okL.MinMs); ("ok.latency.mean", decimal okL.MeanMs)
+              ("ok.latency.max", decimal okL.MaxMs); ("ok.latency.stddev", decimal okL.StdDev)
+              ("ok.latency.percent50", decimal okL.Percent50); ("ok.latency.percent75", decimal okL.Percent75)
+              ("ok.latency.percent95", decimal okL.Percent95); ("ok.latency.percent99", decimal okL.Percent99)
+              ("ok.datatransfer.min", decimal okD.MinBytes); ("ok.datatransfer.mean", decimal okD.MeanBytes)
+              ("ok.datatransfer.max", decimal okD.MaxBytes); ("ok.datatransfer.all", decimal okD.AllBytes)
+              ("ok.datatransfer.percent50", decimal okD.Percent50); ("ok.datatransfer.percent75", decimal okD.Percent75)
+              ("ok.datatransfer.percent95", decimal okD.Percent95); ("ok.datatransfer.percent99", decimal okD.Percent99)
 
-              ("fail.request.count", $"{fR.Count}"); ("fail.request.rps", $"{fR.RPS}")
-              ("fail.latency.min", $"{fL.MinMs}"); ("fail.latency.mean", $"{fL.MeanMs}")
-              ("fail.latency.max", $"{fL.MaxMs}"); ("fail.latency.stddev", $"{fL.StdDev}")
-              ("fail.latency.percent50", $"{fL.Percent50}"); ("fail.latency.percent75", $"{fL.Percent75}")
-              ("fail.latency.percent95", $"{fL.Percent95}"); ("fail.latency.percent99", $"{fL.Percent99}")
-              ("fail.datatransfer.min", $"{fD.MinBytes}"); ("fail.datatransfer.mean", $"{fD.MeanBytes}")
-              ("fail.datatransfer.max", $"{fD.MaxBytes}"); ("fail.datatransfer.all", $"{fD.AllBytes}")
-              ("fail.datatransfer.percent50", $"{fD.Percent50}"); ("fail.datatransfer.percent75", $"{fD.Percent75}")
-              ("fail.datatransfer.percent95", $"{fD.Percent95}"); ("fail.datatransfer.percent99", $"{fD.Percent99}")
+              ("fail.request.count", decimal fR.Count); ("fail.request.rps", decimal fR.RPS)
+              ("fail.latency.min", decimal fL.MinMs); ("fail.latency.mean", decimal fL.MeanMs)
+              ("fail.latency.max", decimal fL.MaxMs); ("fail.latency.stddev", decimal fL.StdDev)
+              ("fail.latency.percent50", decimal fL.Percent50); ("fail.latency.percent75", decimal fL.Percent75)
+              ("fail.latency.percent95", decimal fL.Percent95); ("fail.latency.percent99", decimal fL.Percent99)
+              ("fail.datatransfer.min", decimal fD.MinBytes); ("fail.datatransfer.mean", decimal fD.MeanBytes)
+              ("fail.datatransfer.max", decimal fD.MaxBytes); ("fail.datatransfer.all", decimal fD.AllBytes)
+              ("fail.datatransfer.percent50", decimal fD.Percent50); ("fail.datatransfer.percent75", decimal fD.Percent75)
+              ("fail.datatransfer.percent95", decimal fD.Percent95); ("fail.datatransfer.percent99", decimal fD.Percent99)
 
-              ("simulation.value", $"{simulation.Value}")|]
+              ("simulation.value", decimal simulation.Value)|]
 
-            |> Array.map (fun (name,value) ->
-                PointData.Measurement("nbomber").Field(name, value)
-                |> addTestInfoTags context
-                |> addScenarioInfoTags stepStats.StepName
-                |> addCustomTags tags
-            )
+            |> Array.fold (fun (p:PointData) (name,value) -> p.Field(name, value)) (PointData.Measurement "nbomber")
+            |> addTestInfoTags context
+            |> addScenarioInfoTags stepStats.StepName
+            |> addCustomTags tags
         )
 
     static let createClientFromConfig (config: InfluxDbSinkConfig) =
@@ -185,7 +183,7 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             |> Option.map(fun client ->
                 let writeApi = client.GetWriteApiAsync()
 
-                PointData.Measurement("nbomber").Field("start_session.session_id", _context.TestInfo.SessionId)
+                PointData.Measurement("nbomber").Field("start_session", true)
                 |> addTestInfoTags _context
                 |> addCustomTags _customTags
                 |> writeApi.WritePointAsync
@@ -235,7 +233,7 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             |> Option.map(fun client ->
                 let writeApi = client.GetWriteApiAsync()
 
-                PointData.Measurement("nbomber").Field("stop_session.session_id", _context.TestInfo.SessionId)
+                PointData.Measurement("nbomber").Field("stop_session", true)
                 |> addTestInfoTags _context
                 |> addCustomTags _customTags
                 |> writeApi.WritePointAsync
