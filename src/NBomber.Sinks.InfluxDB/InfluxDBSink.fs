@@ -15,13 +15,13 @@ open NBomber.Contracts.Stats
 type CustomTag = { Key: string; Value: string }
 
 [<CLIMutable>]
-type InfluxDbSinkConfig = {
-    Url: string
-    Database: string
-    UserName: string
-    Password: string
-    CustomTags: CustomTag[]
-} with
+type InfluxDbSinkConfig =
+    { Url: string
+      Database: string
+      UserName: string
+      Password: string
+      CustomTags: CustomTag[] }
+
     [<CompiledName("Create")>]
     static member create(url: string,
                          database: string,
@@ -219,7 +219,7 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
                     |> Array.collect (mapScenarioStats _context _customTags)
                     |> writeApi.WritePointsAsync
 
-                let writeLatencyCount =
+                let writeLatencyCounts =
                     stats
                     |> Array.collect (fun x -> x.ScenarioStats)
                     |> Array.collect (mapLatencyCount _context _customTags)
@@ -231,7 +231,7 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
                     |> Array.collect (mapStatusCodes _context _customTags)
                     |> writeApi.WritePointsAsync
 
-                Task.WhenAll(writeFinalStats, writeLatencyCount, writeStatusCodes)
+                Task.WhenAll(writeFinalStats, writeLatencyCounts, writeStatusCodes)
             )
             |> Option.defaultValue Task.CompletedTask
 
