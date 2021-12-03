@@ -1,4 +1,5 @@
-﻿open System.Threading.Tasks
+﻿open System
+open System.Threading.Tasks
 open FSharp.Control.Tasks.NonAffine
 
 open NBomber
@@ -9,44 +10,52 @@ open NBomber.Sinks.InfluxDB
 [<EntryPoint>]
 let main argv =
 
-    let step1 = Step.create("step_1", fun context -> task {
+    let random = Random()
 
-        do! Task.Delay(milliseconds 100)
+    let login = Step.create("login", fun context -> task {
 
-        // this message will be saved to elastic search
-        context.Logger.Debug("hello from NBomber")
+        let delay = random.Next(100, 110)
+        do! Task.Delay(delay)
 
-        return Response.ok(statusCode = 200, sizeBytes = 100)
+        if delay < 108 then
+            return Response.ok(statusCode = 200, sizeBytes = delay)
+        else
+            return Response.fail(statusCode = 401, sizeBytes = delay)
     })
 
-    let step2 = Step.create("step_2", fun context -> task {
+    let getProduct = Step.create("get_product", fun context -> task {
 
-        do! Task.Delay(milliseconds 300)
+        let delay = random.Next(200, 250)
+        do! Task.Delay(delay)
 
-        // this message will be saved to elastic search
-        context.Logger.Debug("hello from NBomber")
-
-        return Response.ok(statusCode = 500, sizeBytes = 500)
+        if delay < 245 then
+            return Response.ok(statusCode = 202, sizeBytes = delay)
+        else
+            return Response.fail(statusCode = 404, sizeBytes = delay)
     })
 
-    let step3 = Step.create("step_3", fun context -> task {
+    let buyProduct = Step.create("buy_product", fun context -> task {
 
-        do! Task.Delay(milliseconds 300)
+        let delay = random.Next(300, 350)
+        do! Task.Delay(delay)
 
-        // this message will be saved to elastic search
-        context.Logger.Debug("hello from NBomber")
-
-        return Response.ok(statusCode = 700, sizeBytes = 500)
+        if delay < 340 then
+            return Response.ok(statusCode = 200, sizeBytes = delay)
+        else
+            return Response.fail(statusCode = 409, sizeBytes = delay)
     })
 
     use influxDb = new InfluxDBSink()
 
-    Scenario.create "hello_world_scenario" [step1; step2; step3]
+    Scenario.create "buy_one_product_scenario" [login; getProduct; buyProduct]
     |> Scenario.withoutWarmUp
-    |> Scenario.withLoadSimulations [KeepConstant(10, minutes 2)]
+    |> Scenario.withLoadSimulations [
+        RampConstant(copies = 100, during = minutes 2)
+        KeepConstant(copies = 100, during = minutes 3)
+    ]
     |> NBomberRunner.registerScenario
-    |> NBomberRunner.withTestSuite "reporting"
-    |> NBomberRunner.withTestName "influx_test"
+    |> NBomberRunner.withTestSuite "eshop_test_suite"
+    |> NBomberRunner.withTestName "purchase_test"
     |> NBomberRunner.withReportingSinks [influxDb]
     |> NBomberRunner.withReportingInterval(seconds 5)
     |> NBomberRunner.loadInfraConfig "infra-config.json"
