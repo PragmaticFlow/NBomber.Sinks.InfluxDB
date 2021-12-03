@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
-        <Version>2.0.0</Version>
+        <Version>3.0.0</Version>
         <Authors>PragmaticFlow</Authors>
         <Copyright>PragmaticFlow@2021</Copyright>
         <PackageTags>load-testing, performance-testing, integration-testing, influxdb, fsharp</PackageTags>
@@ -24,7 +24,7 @@
 
     <ItemGroup>
         <PackageReference Include="InfluxDB.Client" Version="3.1.0" />
-        <PackageReference Include="NBomber" Version="2.1.2" />        
+        <PackageReference Include="NBomber" Version="2.1.2" />
     </ItemGroup>
 
 </Project>
