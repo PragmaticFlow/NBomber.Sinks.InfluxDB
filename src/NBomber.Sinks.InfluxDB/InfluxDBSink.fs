@@ -208,26 +208,23 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             )
             |> Option.defaultValue Task.CompletedTask
 
-        member _.SaveFinalStats(stats: NodeStats[]) =
+        member _.SaveFinalStats(stats: NodeStats) =
             _influxClient
             |> Option.map(fun client ->
                 let writeApi = client.GetWriteApiAsync()
 
                 let writeFinalStats =
-                    stats
-                    |> Array.collect (fun x -> x.ScenarioStats)
+                    stats.ScenarioStats
                     |> Array.collect (mapScenarioStats _context _customTags)
                     |> writeApi.WritePointsAsync
 
                 let writeLatencyCounts =
-                    stats
-                    |> Array.collect (fun x -> x.ScenarioStats)
+                    stats.ScenarioStats
                     |> Array.collect (mapLatencyCount _context _customTags)
                     |> writeApi.WritePointsAsync
 
                 let writeStatusCodes =
-                    stats
-                    |> Array.collect (fun x -> x.ScenarioStats)
+                    stats.ScenarioStats
                     |> Array.collect (mapStatusCodes _context _customTags)
                     |> writeApi.WritePointsAsync
 
