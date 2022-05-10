@@ -5,10 +5,6 @@ VisualStudioVersion = 15.0.28307.136
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "NBomber.Sinks.InfluxDB", "src\NBomber.Sinks.InfluxDB\NBomber.Sinks.InfluxDB.fsproj", "{9974ACD3-9EAF-473C-9B72-86F50DAC8145}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{91B963F2-3296-4B05-80B1-54A7EB7A0636}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp", "examples\FSharp\FSharp.fsproj", "{D2B77FE9-F018-4272-9363-56BE3C424758}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -19,16 +15,11 @@ Global
 		{9974ACD3-9EAF-473C-9B72-86F50DAC8145}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9974ACD3-9EAF-473C-9B72-86F50DAC8145}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9974ACD3-9EAF-473C-9B72-86F50DAC8145}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D2B77FE9-F018-4272-9363-56BE3C424758}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D2B77FE9-F018-4272-9363-56BE3C424758}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D2B77FE9-F018-4272-9363-56BE3C424758}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D2B77FE9-F018-4272-9363-56BE3C424758}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{D2B77FE9-F018-4272-9363-56BE3C424758} = {91B963F2-3296-4B05-80B1-54A7EB7A0636}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0A600C4E-4EAA-44ED-873A-F357DD2CF34C}
