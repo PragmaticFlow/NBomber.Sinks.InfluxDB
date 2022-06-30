@@ -55,6 +55,7 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             .Tag("node_type", nodeType)
             .Tag("test_suite", testInfo.TestSuite)
             .Tag("test_name", testInfo.TestName)
+            .Tag("cluster_id", testInfo.ClusterId)
 
     let addScenarioInfoTags (scnStats: ScenarioStats) (stepName: string) (point: PointData) =
         let operation = getOperationName(scnStats.CurrentOperation)
@@ -190,7 +191,7 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             |> Option.map(fun client ->
                 let writeApi = client.GetWriteApiAsync()
 
-                PointData.Measurement("nbomber").Field("start_session", true)
+                PointData.Measurement("nbomber").Field("cluster_node", 1)
                 |> addTestInfoTags _context
                 |> addCustomTags _customTags
                 |> writeApi.WritePointAsync
@@ -202,9 +203,22 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             |> Option.map(fun client ->
                 let writeApi = client.GetWriteApiAsync()
 
-                stats
-                |> Array.collect (mapScenarioStats _context _customTags)
-                |> writeApi.WritePointsAsync
+                let writeRealtimeStats =
+                    stats
+                    |> Array.collect (mapScenarioStats _context _customTags)
+                    |> writeApi.WritePointsAsync
+
+                let writeLatencyCounts =
+                    stats
+                    |> Array.collect (mapLatencyCount _context _customTags)
+                    |> writeApi.WritePointsAsync
+
+                let writeStatusCodes =
+                    stats
+                    |> Array.collect (mapStatusCodes _context _customTags)
+                    |> writeApi.WritePointsAsync
+
+                Task.WhenAll(writeRealtimeStats, writeLatencyCounts, writeStatusCodes)
             )
             |> Option.defaultValue Task.CompletedTask
 
@@ -237,7 +251,7 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             |> Option.map(fun client ->
                 let writeApi = client.GetWriteApiAsync()
 
-                PointData.Measurement("nbomber").Field("stop_session", true)
+                PointData.Measurement("nbomber").Field("cluster_node", 0)
                 |> addTestInfoTags _context
                 |> addCustomTags _customTags
                 |> writeApi.WritePointAsync
