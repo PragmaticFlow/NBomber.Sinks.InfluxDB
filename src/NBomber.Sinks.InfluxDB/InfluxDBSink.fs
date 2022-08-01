@@ -39,30 +39,25 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
     let mutable _influxClient = influxClient |> Option.ofObj
     let mutable _customTags = if isNull customTags then Array.empty else customTags
 
-    let getOperationName (operation: OperationType) =
-        match operation with
-        | OperationType.Bombing  -> "bombing"
-        | OperationType.Complete -> "complete"
-        | _                      -> "bombing"
-
     let addCustomTags (tags: CustomTag[]) (point: PointData) =
         tags |> Array.fold (fun (p:PointData) t -> p.Tag(t.Key, t.Value)) point
 
     let addTestInfoTags (context: IBaseContext) (point: PointData) =
-        let nodeType = context.NodeInfo.NodeType.ToString()
+        let nodeInfo = context.GetNodeInfo()
         let testInfo = context.TestInfo
         point
-            .Tag("node_type", nodeType)
+            .Field("session_id", testInfo.SessionId)
+            .Field("node_current_operation", nodeInfo.CurrentOperation.ToString().ToLower())
+            .Tag("node_type", nodeInfo.NodeType.ToString())
             .Tag("test_suite", testInfo.TestSuite)
             .Tag("test_name", testInfo.TestName)
             .Tag("cluster_id", testInfo.ClusterId)
 
     let addScenarioInfoTags (scnStats: ScenarioStats) (stepName: string) (point: PointData) =
-        let operation = getOperationName(scnStats.CurrentOperation)
         point
             .Tag("scenario", scnStats.ScenarioName)
             .Tag("step", stepName)
-            .Tag("operation", operation)
+            .Tag("operation", scnStats.CurrentOperation.ToString().ToLower())
 
     let mapLatencyCount (context: IBaseContext) (tags: CustomTag[]) (scnStats: ScenarioStats) =
         scnStats.StepStats
@@ -103,9 +98,6 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
     let mapScenarioStats (context: IBaseContext) (tags: CustomTag[]) (scnStats: ScenarioStats) =
         let simulation = scnStats.LoadSimulationStats
 
-        let addSimulationNameTag (point: PointData) =
-            point.Tag("simulation.name", simulation.SimulationName)
-
         scnStats.StepStats
         |> Array.map (fun step ->
             let okR = step.Ok.Request
@@ -144,7 +136,6 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             |> Array.fold (fun (p:PointData) (name,value) -> p.Field(name, value)) (PointData.Measurement "nbomber")
             |> addTestInfoTags context
             |> addScenarioInfoTags scnStats step.StepName
-            |> addSimulationNameTag
             |> addCustomTags tags
         )
 
@@ -185,18 +176,6 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             )
 
             Task.CompletedTask
-
-        member _.Start() =
-            _influxClient
-            |> Option.map(fun client ->
-                let writeApi = client.GetWriteApiAsync()
-
-                PointData.Measurement("nbomber").Field("cluster_node", 1)
-                |> addTestInfoTags _context
-                |> addCustomTags _customTags
-                |> writeApi.WritePointAsync
-            )
-            |> Option.defaultValue Task.CompletedTask
 
         member _.SaveRealtimeStats(stats: ScenarioStats[]) =
             _influxClient
@@ -246,16 +225,20 @@ type InfluxDBSink(influxClient: InfluxDBClient, customTags: CustomTag[]) =
             )
             |> Option.defaultValue Task.CompletedTask
 
-        member _.Stop() =
+        member _.Start() =
             _influxClient
             |> Option.map(fun client ->
                 let writeApi = client.GetWriteApiAsync()
 
-                PointData.Measurement("nbomber").Field("cluster_node", 0)
+                PointData.Measurement("nbomber")
+                    .Field("cluster_node", 1)
+                    .Field("node_cores_count", _context.GetNodeInfo().CoresCount)
                 |> addTestInfoTags _context
                 |> addCustomTags _customTags
                 |> writeApi.WritePointAsync
             )
             |> Option.defaultValue Task.CompletedTask
+
+        member _.Stop() = Task.CompletedTask
 
         member _.Dispose() = ()
