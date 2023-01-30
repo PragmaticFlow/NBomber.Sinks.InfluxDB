@@ -14,10 +14,10 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v2
       with:
-        dotnet-version: 6.x.x
+        dotnet-version: 7.x.x
     - name: Restore dependencies
       run: dotnet restore
     - name: Pack
-      run: dotnet pack src/NBomber.Sinks.InfluxDB/NBomber.Sinks.InfluxDB.fsproj -c Release -o artifacts --include-source
+      run: dotnet pack src/NBomber.Sinks.InfluxDB/NBomber.Sinks.InfluxDB.csproj -c Release -o artifacts --include-source
     - name: Publish
       run: dotnet nuget push artifacts/**.nupkg -s https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_TOKEN }}
