@@ -29,6 +29,10 @@ namespace NBomber.Sinks.InfluxDB
         public CustomTag[] CustomTags { get; set; }
     }
     
+    /// <summary>
+    /// This class represent ReportingSink for InfluxDB.
+    /// It supports to work with InfluxDB v1.8 and InfluxDB v2.0.
+    /// </summary>
     public class InfluxDBSink : IReportingSink
     {
         private ILogger _logger;
@@ -69,7 +73,10 @@ namespace NBomber.Sinks.InfluxDB
 
             if (_influxClient == null)
             {
-                _logger.Warning("Reporting Sink {0} has problems with initialization. The problem could be related to invalid config structure.", SinkName);
+                _logger.Error("Reporting Sink {0} has problems with initialization. The problem could be related to invalid config structure.", SinkName);
+                
+                throw new Exception(
+                    $"Reporting Sink {SinkName} has problems with initialization. The problem could be related to invalid config structure.");
             }
             
             return Task.CompletedTask;
@@ -82,8 +89,8 @@ namespace NBomber.Sinks.InfluxDB
                 var writeApi = _influxClient.GetWriteApiAsync();
                 
                 var point = PointData.Measurement("nbomber")
-                    .Field("cluster_node", 1)
-                    .Field("node_cores_count", _context.GetNodeInfo().CoresCount);
+                    .Field("cluster.node_count", 1)
+                    .Field("cluster.node_cpu_count", _context.GetNodeInfo().CoresCount);
 
                 point = AddCustomTags(AddTestInfoTags(point));
 
@@ -253,8 +260,7 @@ namespace NBomber.Sinks.InfluxDB
                     var point = PointData
                         .Measurement("nbomber")
                         .Tag("status_code.status", s.StatusCode)
-                        .Field("status_code.count", s.Count)
-                        .Field("status_code.is_error", s.IsError);
+                        .Field("status_code.count", s.Count);
 
                     point = AddCustomTags(AddTestInfoTags(point));
                     point = AddScenarioNameTag(point, scnStats.ScenarioName);
