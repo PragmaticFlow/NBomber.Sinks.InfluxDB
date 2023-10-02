@@ -26,6 +26,8 @@ namespace NBomber.Sinks.InfluxDB
         public string UserName { get; set; }
         public string Password { get; set; }
         public string Token { get; set; }
+        public string Org { get; set; }
+        public string Bucket { get; set; }
         public CustomTag[] CustomTags { get; set; }
     }
     
@@ -63,9 +65,31 @@ namespace NBomber.Sinks.InfluxDB
             var config = infraConfig?.GetSection("InfluxDBSink").Get<InfluxDbSinkConfig>();
             if (config != null)
             {
-                _influxClient = string.IsNullOrEmpty(config.Token)
-                    ? new InfluxDBClient(config.Url, config.UserName, config.Password, config.Database, retentionPolicy: "autogen") // v1.8 
-                    : new InfluxDBClient(config.Url, config.Token); // v2
+                if (!string.IsNullOrEmpty(config.Database)) // Influx v1 
+                {
+                    _influxClient = new InfluxDBClient(
+                        config.Url, config.UserName, config.Password, config.Database, retentionPolicy: "autogen"
+                    );
+                }
+                else                                        // Influx v2
+                {
+                    var influxOpt = new InfluxDBClientOptions(config.Url);
+                
+                    if (!string.IsNullOrEmpty(config.UserName)) 
+                        influxOpt.Username = config.UserName;
+                
+                    if (!string.IsNullOrEmpty(config.Password)) 
+                        influxOpt.Password = config.Password;
+                
+                    if (!string.IsNullOrEmpty(config.Token))
+                        influxOpt.Token = config.Token;
+                
+                    // mandatory params
+                    influxOpt.Org = config.Org;
+                    influxOpt.Bucket = config.Bucket;
+                    
+                    _influxClient = new InfluxDBClient(influxOpt);
+                }
 
                 if (config.CustomTags != null)
                     _customTags = config.CustomTags;
