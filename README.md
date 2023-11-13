@@ -13,10 +13,10 @@ PM> Install-Package NBomber.Sinks.InfluxDB
 ```
 
 ### Documentation
-Documentation is located [here](https://nbomber.com/docs/sinks-influxdb).
+Documentation is located [here](https://nbomber.com/docs/reporting-sinks/influx-db).
 
 ### Contributing
 Would you like to help make NBomber even better? We keep a list of issues that are approachable for newcomers under the [good-first-issue](https://github.com/PragmaticFlow/NBomber.Sinks.InfluxDB/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) label.
 
 ### Examples
-Example is located [here](https://github.com/PragmaticFlow/NBomber.Sinks.InfluxDB/tree/master/examples).
+Example is located [here](https://github.com/PragmaticFlow/NBomber/tree/dev/examples/Demo/Features/RealtimeReporting/InfluxDB).
