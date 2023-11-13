@@ -84,9 +84,11 @@ namespace NBomber.Sinks.InfluxDB
                     if (!string.IsNullOrEmpty(config.Token))
                         influxOpt.Token = config.Token;
                 
-                    // mandatory params
-                    influxOpt.Org = config.Org;
-                    influxOpt.Bucket = config.Bucket;
+                    if (!string.IsNullOrEmpty(config.Org))
+                        influxOpt.Org = config.Org;
+                    
+                    if (!string.IsNullOrEmpty(config.Bucket))
+                        influxOpt.Bucket = config.Bucket;
                     
                     _influxClient = new InfluxDBClient(influxOpt);
                 }
