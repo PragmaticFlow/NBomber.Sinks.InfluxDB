@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.28307.136
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NBomber.Sinks.InfluxDB", "src\NBomber.Sinks.InfluxDB\NBomber.Sinks.InfluxDB.csproj", "{BF6C8E1B-1622-43D7-B325-B2F003FF9C0F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Demo", "src\Demo\Demo.csproj", "{397594A4-6553-44FC-BC64-A8EEE507E254}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{BF6C8E1B-1622-43D7-B325-B2F003FF9C0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BF6C8E1B-1622-43D7-B325-B2F003FF9C0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BF6C8E1B-1622-43D7-B325-B2F003FF9C0F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{397594A4-6553-44FC-BC64-A8EEE507E254}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{397594A4-6553-44FC-BC64-A8EEE507E254}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{397594A4-6553-44FC-BC64-A8EEE507E254}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{397594A4-6553-44FC-BC64-A8EEE507E254}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
