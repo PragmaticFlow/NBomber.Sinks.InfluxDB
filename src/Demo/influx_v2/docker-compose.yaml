@@ -2,7 +2,7 @@
 services:
 
   influxdb:
-    image: "influxdb:2.7.1"
+    image: "influxdb:2.7.5"
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
       DOCKER_INFLUXDB_INIT_USERNAME: admin
@@ -14,6 +14,17 @@ services:
       - "8086:8086"
     volumes:
         - 'influxdb-storage:/var/lib/influxdb2'
+  
+  grafana:
+    image: "grafana/grafana:10.4.0"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - "influxdb"
+    volumes:
+      - 'grafana-storage:/var/lib/grafana'   
+    
 
 volumes:
-    influxdb-storage:
+  influxdb-storage:
+  grafana-storage:

@@ -1,9 +1,11 @@
 ﻿{
-    "InfluxDBSink": {
-      "Url": "http://localhost:8086",
-      "Database": "nbomber",
-      "UserName": "",
-      "Password": "",
-      "CustomTags": [{"Key": "environment", "Value": "linux"}]
-    }
+  "InfluxDBSink": {
+    "Url": "http://localhost:8086",
+    "Token": "secret-token",
+    "Org": "nbomber",
+    "Bucket": "nbomber",
+    "UserName": "admin",
+    "Password": "adminadmin",
+    "CustomTags": [{ "Key": "environment", "Value": "linux" }]
+  }
 }
