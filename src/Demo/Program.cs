@@ -1,6 +1,8 @@
 ﻿using InfluxDB.Client.Writes;
 using NBomber.CSharp;
 using NBomber.Sinks.InfluxDB;
+using Newtonsoft.Json;
+using Serilog;
 using TimeSpan = System.TimeSpan;
 
 new InfluxDBReportingExample().Run();
@@ -37,8 +39,18 @@ public class InfluxDBReportingExample
                 
                 var readApi = _influxDbSink.InfluxClient.GetQueryApi();
                 var results = await readApi.QueryAsync(query, "nbomber");
+
+                var serializedResults = JsonConvert.SerializeObject(results);
+                if (results is null || string.IsNullOrEmpty(serializedResults))
+                {
+                    context.Logger.Information("no data");
+                }
+                else
+                {
+                    context.Logger.Information($"Data from influxdb: {serializedResults}");
+                }
             
-            return Response.Ok(statusCode: "200");
+                return Response.Ok(statusCode: "200");
         })
         .WithoutWarmUp()
         .WithLoadSimulations(
@@ -52,6 +64,13 @@ public class InfluxDBReportingExample
             .WithReportingSinks(_influxDbSink)
             .WithTestSuite("reporting")
             .WithTestName("influx_db_demo")
+            .WithLoggerConfig(() => new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.File("log.txt", outputTemplate:
+                    "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [ThreadId:{ThreadId}] {Message:lj}{NewLine}{Exception}",
+                    rollingInterval: RollingInterval.Day)
+            )
+            
             .Run();
     }
 }
