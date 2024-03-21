@@ -1,4 +1,6 @@
-﻿using InfluxDB.Client.Writes;
+﻿using AutoBogus;
+using InfluxDB.Client.Writes;
+using NBomber.Contracts.Stats;
 using NBomber.CSharp;
 using NBomber.Sinks.InfluxDB;
 using Newtonsoft.Json;
@@ -11,66 +13,68 @@ public class InfluxDBReportingExample
 {
     private readonly InfluxDBSink _influxDbSink = new();
 
+    private ScenarioStats[] _stats;
+    
     public void Run()
     {
         var writeScenario = Scenario.Create("write_scenario", async context =>
             {
-                var writeApi = _influxDbSink.InfluxClient.GetWriteApiAsync();
-                
-                var point = PointData
-                    .Measurement("nbomber")
-                    .Field("my_custom_counter", 1);
-                
-                await writeApi.WritePointsAsync(Enumerable.Repeat(point, 5).ToArray());
+                await _influxDbSink.SaveRealtimeStats(_stats);
                 
                 return Response.Ok(statusCode: "201");
             })
             .WithoutWarmUp()
             .WithLoadSimulations(
-                Simulation.KeepConstant(20, TimeSpan.FromSeconds(30))
-            );
-
-        var readScenario = Scenario.Create("read_scenario", async context =>
+                Simulation.KeepConstant(50, TimeSpan.FromSeconds(30))
+            ).WithInit(context =>
             {
-                var query = @"
-                    from(bucket: ""nbomber"")
-                    |> range(start: -1m)
-                    ";
-                
-                var readApi = _influxDbSink.InfluxClient.GetQueryApi();
-                var results = await readApi.QueryAsync(query, "nbomber");
+                _stats = new ScenarioStats[2];
 
-                var serializedResults = JsonConvert.SerializeObject(results);
-                if (results is null || string.IsNullOrEmpty(serializedResults))
+                var faker = AutoFaker.Create();
+                for (var i = 0; i < _stats.Length; i++)
                 {
-                    context.Logger.Information("no data");
+                    _stats[i] = faker.Generate<ScenarioStats>();
+                    _stats[i].StepStats =
+                        [faker.Generate<StepStats>(), faker.Generate<StepStats>(), faker.Generate<StepStats>()];
                 }
-                else
-                {
-                    context.Logger.Information($"Data from influxdb: {serializedResults}");
-                }
-            
-                return Response.Ok(statusCode: "200");
-        })
-        .WithoutWarmUp()
-        .WithLoadSimulations(
-            Simulation.KeepConstant(20, TimeSpan.FromSeconds(30))
-        );
+                
+                return Task.CompletedTask;
+            });
+
+        // var readScenario = Scenario.Create("read_scenario", async context =>
+        //     {
+        //         var query = @"
+        //             from(bucket: ""nbomber"")
+        //             |> range(start: -1m)
+        //             ";
+        //         
+        //         var readApi = _influxDbSink.InfluxClient.GetQueryApi();
+        //         var results = await readApi.QueryAsync(query, "nbomber");
+        //
+        //         var serializedResults = JsonConvert.SerializeObject(results);
+        //         if (results is null || string.IsNullOrEmpty(serializedResults))
+        //         {
+        //             context.Logger.Information("no data");
+        //         }
+        //         else
+        //         {
+        //             context.Logger.Information($"Data from influxdb: {serializedResults}");
+        //         }
+        //     
+        //         return Response.Ok(statusCode: "200");
+        // })
+        // .WithoutWarmUp()
+        // .WithLoadSimulations(
+        //     Simulation.KeepConstant(20, TimeSpan.FromSeconds(30))
+        // );
         
         NBomberRunner
-            .RegisterScenarios(writeScenario, readScenario)
+            .RegisterScenarios(writeScenario)
             .LoadInfraConfig("infra-config.json")
             //.WithReportingInterval(TimeSpan.FromSeconds(5))
             .WithReportingSinks(_influxDbSink)
             .WithTestSuite("reporting")
             .WithTestName("influx_db_demo")
-            .WithLoggerConfig(() => new LoggerConfiguration()
-                .MinimumLevel.Debug()
-                .WriteTo.File("log.txt", outputTemplate:
-                    "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [ThreadId:{ThreadId}] {Message:lj}{NewLine}{Exception}",
-                    rollingInterval: RollingInterval.Day)
-            )
-            
             .Run();
     }
 }
