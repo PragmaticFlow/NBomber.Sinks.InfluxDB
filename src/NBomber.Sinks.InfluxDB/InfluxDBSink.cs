@@ -108,7 +108,7 @@ namespace NBomber.Sinks.InfluxDB
             return Task.CompletedTask;
         }
 
-        public async Task Start()
+        public async Task Start(SessionStartInfo sessionInfo)
         {
             if (_influxClient != null)
             {
@@ -185,7 +185,7 @@ namespace NBomber.Sinks.InfluxDB
 
         ScenarioStats AddGlobalInfoStep(ScenarioStats scnStats)
         {
-            var globalStepInfo = new StepStats("global information", scnStats.Ok, scnStats.Fail);
+            var globalStepInfo = new StepStats("global information", scnStats.Ok, scnStats.Fail, sortIndex: 0);
             scnStats.StepStats = scnStats.StepStats.Append(globalStepInfo).ToArray();
             
             return scnStats;
