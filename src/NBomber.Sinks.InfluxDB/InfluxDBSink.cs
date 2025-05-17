@@ -13,27 +13,70 @@ using NBomber.Contracts.Stats;
 
 namespace NBomber.Sinks.InfluxDB
 {
+    /// <summary>
+    /// Represents a custom key-value tag that can be attached to InfluxDB metrics.
+    /// </summary>
     public class CustomTag
     {
+        /// <summary>
+        /// Gets or sets the tag key.
+        /// </summary>
         public string Key { get; set; }
+        
+        /// <summary>
+        /// Gets or sets the tag value.
+        /// </summary>
         public string Value { get; set; }
     }
 
+    /// <summary>
+    /// Represents the configuration settings for connecting to an InfluxDB instance.
+    /// </summary>
     public class InfluxDbSinkConfig
     {
+        /// <summary>
+        /// Gets or sets the URL of the InfluxDB server.
+        /// </summary>
         public string Url { get; set; }
+
+        /// <summary>
+        /// Gets or sets the database name for InfluxDB 1.x compatibility.
+        /// </summary>
         public string Database { get; set; }
+
+        /// <summary>
+        /// Gets or sets the username for authentication (used in InfluxDB 1.x).
+        /// </summary>
         public string UserName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the password for authentication (used in InfluxDB 1.x).
+        /// </summary>
         public string Password { get; set; }
+
+        /// <summary>
+        /// Gets or sets the token for authentication (used in InfluxDB 2.x).
+        /// </summary>
         public string Token { get; set; }
+
+        /// <summary>
+        /// Gets or sets the organization name (used in InfluxDB 2.x).
+        /// </summary>
         public string Org { get; set; }
+
+        /// <summary>
+        /// Gets or sets the bucket name (used in InfluxDB 2.x).
+        /// </summary>
         public string Bucket { get; set; }
+
+        /// <summary>
+        /// Gets or sets an array of custom tags to include with each metric sent to InfluxDB.
+        /// </summary>
         public CustomTag[] CustomTags { get; set; }
     }
     
     /// <summary>
-    /// This class represent ReportingSink for InfluxDB.
-    /// It supports to work with InfluxDB v1.8 and InfluxDB v2.0.
+    /// A reporting sink implementation for sending performance metrics to InfluxDB.
     /// </summary>
     public class InfluxDBSink : IReportingSink
     {
@@ -42,13 +85,32 @@ namespace NBomber.Sinks.InfluxDB
         private InfluxDBClient _influxClient;
         private CustomTag[] _customTags = Array.Empty<CustomTag>();
 
+        /// <summary>
+        /// Gets the name of the sink, used for identification in NBomber.
+        /// </summary>
         public string SinkName => "NBomber.Sinks.InfluxDB";
+        
+        /// <summary>
+        /// Gets the underlying <see cref="InfluxDBClient"/> used to write metrics.
+        /// </summary>
         public InfluxDBClient InfluxClient => _influxClient;
+        
+        /// <summary>
+        /// Gets the custom tags attached to every metric sent to InfluxDB.
+        /// </summary>
         public CustomTag[] CustomTags => _customTags;
         
+        /// <summary>
+        /// Initializes a new instance of the <see cref="InfluxDBSink"/> class with default settings.
+        /// </summary>
         public InfluxDBSink()
         { }
         
+        /// <summary>
+        /// Initializes a new instance of the <see cref="InfluxDBSink"/> class using an existing <see cref="InfluxDBClient"/> and optional custom tags.
+        /// </summary>
+        /// <param name="influxClient">The InfluxDB client used to send data.</param>
+        /// <param name="customTags">Optional custom tags to include with each metric.</param>
         public InfluxDBSink(InfluxDBClient influxClient, CustomTag[] customTags = null)
         {
             _influxClient = influxClient;
@@ -57,6 +119,13 @@ namespace NBomber.Sinks.InfluxDB
                 _customTags = customTags;
         }
 
+        /// <summary>
+        /// Initializes the sink with runtime context and configuration settings.
+        /// </summary>
+        /// <param name="context">The NBomber context object.</param>
+        /// <param name="infraConfig">Configuration source that may contain InfluxDB-specific settings.</param>
+        /// <returns>A task that represents the asynchronous initialization operation.</returns>
+        /// <exception cref="Exception">Thrown when configuration is invalid or client initialization fails.</exception>
         public Task Init(IBaseContext context, IConfiguration infraConfig)
         {
             _logger = context.Logger.ForContext<InfluxDBSink>();
@@ -108,82 +177,97 @@ namespace NBomber.Sinks.InfluxDB
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Called at the start of a test session to initialize reporting.
+        /// Sends initial cluster-level data points to InfluxDB.
+        /// </summary>
+        /// <param name="sessionInfo">Metadata about the current NBomber session.</param>
+        /// <returns>A task that represents the asynchronous operation.</returns>
         public async Task Start(SessionStartInfo sessionInfo)
         {
-            if (_influxClient != null)
-            {
-                var writeApi = _influxClient.GetWriteApiAsync();
-                
-                var point = PointData.Measurement("nbomber")
-                    .Field("cluster.node_count", 1)
-                    .Field("cluster.node_cpu_count", _context.GetNodeInfo().CoresCount);
+            var writeApi = _influxClient.GetWriteApiAsync();
+            
+            var point = PointData.Measurement("nbomber")
+                .Field("cluster.node_count", 1)
+                .Field("cluster.node_cpu_count", _context.GetNodeInfo().CoresCount);
 
-                point = AddCustomTags(AddTestInfoTags(point));
+            point = AddCustomTags(AddTestInfoTags(point, OperationType.Bombing));
 
-                await writeApi.WritePointAsync(point);
-            }
+            await writeApi.WritePointAsync(point);
         }
         
+        /// <summary>
+        /// Called when the test session ends.
+        /// </summary>
+        /// <returns>A completed task.</returns>
         public Task Stop() => Task.CompletedTask;
 
+        /// <summary>
+        /// Sends real-time scenario statistics to InfluxDB during test execution.
+        /// </summary>
+        /// <param name="stats">The scenario statistics to send.</param>
+        /// <returns>A task that represents the asynchronous operation.</returns>
         public Task SaveRealtimeStats(ScenarioStats[] stats)
         {
-            return SaveScenarioStats(stats);
+            return SaveScenarioStats(stats, OperationType.Bombing);
         }
 
+        /// <summary>
+        /// Saves the final scenario statistics after the test session completes.
+        /// </summary>
+        /// <param name="stats">The final node statistics to send to Datadog.</param>
+        /// <returns>A completed task.</returns>
         public Task SaveFinalStats(NodeStats stats)
         {
-            return SaveScenarioStats(stats.ScenarioStats);
+            return SaveScenarioStats(stats.ScenarioStats, OperationType.Complete);
         }
 
+        /// <summary>
+        /// Releases the resources used by the sink, including the InfluxDB client.
+        /// </summary>
         public void Dispose()
         {
             _influxClient?.Dispose();
         }
         
-        Task SaveScenarioStats(ScenarioStats[] stats)
-        {
-            if (_influxClient != null)
-            {
-                var writeApi = _influxClient.GetWriteApiAsync();
-                var updatedStats = stats.Select(AddGlobalInfoStep).ToArray();
-                    
-                var realtimeStats = updatedStats.SelectMany(MapStepsStats).ToArray();
-                var writeRealtimeStats = writeApi.WritePointsAsync(realtimeStats);
+        private Task SaveScenarioStats(ScenarioStats[] stats, OperationType operationType)
+        {   
+            var writeApi = _influxClient.GetWriteApiAsync();
+            var updatedStats = stats.Select(AddGlobalInfoStep).ToArray();
                 
-                var latencyCounts = stats.Select(MapLatencyCount).ToArray();
-                var writeLatencyCounts = writeApi.WritePointsAsync(latencyCounts);
+            var realtimeStats = updatedStats.SelectMany(x => MapStepsStats(x, operationType)).ToArray();
+            var writeRealtimeStats = writeApi.WritePointsAsync(realtimeStats);
+            
+            var latencyCounts = stats.Select(x => MapLatencyCount(x, operationType)).ToArray();
+            var writeLatencyCounts = writeApi.WritePointsAsync(latencyCounts);
 
-                var statusCodes = stats.SelectMany(MapStatusCodes).ToArray();
-                var writeStatusCodes = writeApi.WritePointsAsync(statusCodes);
+            var statusCodes = stats.SelectMany(x => MapStatusCodes(x, operationType)).ToArray();
+            var writeStatusCodes = writeApi.WritePointsAsync(statusCodes);
 
-                return Task.WhenAll(writeRealtimeStats, writeLatencyCounts, writeStatusCodes);
-            }
-
-            return Task.CompletedTask;
+            return Task.WhenAll(writeRealtimeStats, writeLatencyCounts, writeStatusCodes);
         }
 
-        PointData AddTestInfoTags(PointData point)
+        private PointData AddTestInfoTags(PointData point, OperationType operationType)
         {
             var nodeInfo = _context.GetNodeInfo();
             var testInfo = _context.TestInfo;
 
             return point
                 .Field("session_id", testInfo.SessionId)
-                .Tag("current_operation", nodeInfo.CurrentOperation.ToString().ToLower())
+                .Tag("current_operation", operationType.ToString().ToLower())
                 .Tag("node_type", nodeInfo.NodeType.ToString())
                 .Tag("test_suite", testInfo.TestSuite)
                 .Tag("test_name", testInfo.TestName)
                 .Tag("cluster_id", testInfo.ClusterId);
         }
 
-        PointData AddCustomTags(PointData point) => 
+        private PointData AddCustomTags(PointData point) => 
             _customTags.Aggregate(point, (current, t) => current.Tag(t.Key, t.Value));
         
-        PointData AddScenarioNameTag(PointData point, string scnName) => point.Tag("scenario", scnName);
-        PointData AddStepNameTag(PointData point, string stepName) => point.Tag("step", stepName);
+        private PointData AddScenarioNameTag(PointData point, string scnName) => point.Tag("scenario", scnName);
+        private PointData AddStepNameTag(PointData point, string stepName) => point.Tag("step", stepName);
 
-        ScenarioStats AddGlobalInfoStep(ScenarioStats scnStats)
+        private ScenarioStats AddGlobalInfoStep(ScenarioStats scnStats)
         {
             var globalStepInfo = new StepStats("global information", scnStats.Ok, scnStats.Fail, sortIndex: 0);
             scnStats.StepStats = scnStats.StepStats.Append(globalStepInfo).ToArray();
@@ -191,7 +275,7 @@ namespace NBomber.Sinks.InfluxDB
             return scnStats;
         }
         
-        IEnumerable<PointData> MapStepsStats(ScenarioStats scnStats)
+        private IEnumerable<PointData> MapStepsStats(ScenarioStats scnStats, OperationType operationType)
         {
             var simulation = scnStats.LoadSimulationStats;
             
@@ -255,7 +339,7 @@ namespace NBomber.Sinks.InfluxDB
                     
                     .Field("simulation.value", simulation.Value);
 
-                point = AddCustomTags(AddTestInfoTags(point));
+                point = AddCustomTags(AddTestInfoTags(point, operationType));
                 point = AddStepNameTag(point, step.StepName);
                 point = AddScenarioNameTag(point, scnStats.ScenarioName);
 
@@ -263,7 +347,7 @@ namespace NBomber.Sinks.InfluxDB
             });
         }
 
-        PointData MapLatencyCount(ScenarioStats scnStats)
+        private PointData MapLatencyCount(ScenarioStats scnStats, OperationType operationType)
         {
             var point = PointData
                 .Measurement("nbomber")
@@ -271,13 +355,13 @@ namespace NBomber.Sinks.InfluxDB
                 .Field("latency_count.more_800_less_1200", scnStats.Ok.Latency.LatencyCount.More800Less1200)
                 .Field("latency_count.more_or_eq_1200", scnStats.Ok.Latency.LatencyCount.MoreOrEq1200);
 
-            point = AddCustomTags(AddTestInfoTags(point));
+            point = AddCustomTags(AddTestInfoTags(point, operationType));
             point = AddScenarioNameTag(point, scnStats.ScenarioName);
 
             return point;
         }
 
-        IEnumerable<PointData> MapStatusCodes(ScenarioStats scnStats)
+        private IEnumerable<PointData> MapStatusCodes(ScenarioStats scnStats, OperationType operationType)
         {
             return scnStats
                 .Ok.StatusCodes.Concat(scnStats.Fail.StatusCodes)
@@ -288,7 +372,7 @@ namespace NBomber.Sinks.InfluxDB
                         .Tag("status_code.status", s.StatusCode)
                         .Field("status_code.count", s.Count);
 
-                    point = AddCustomTags(AddTestInfoTags(point));
+                    point = AddCustomTags(AddTestInfoTags(point, operationType));
                     point = AddScenarioNameTag(point, scnStats.ScenarioName);
 
                     return point;
