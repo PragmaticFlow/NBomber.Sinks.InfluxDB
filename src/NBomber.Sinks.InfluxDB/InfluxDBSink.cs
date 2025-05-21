@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Serilog;
 
 using NBomber.Contracts;
+using NBomber.Contracts.Metrics;
 using NBomber.Contracts.Stats;
 
 namespace NBomber.Sinks.InfluxDB
@@ -85,9 +86,7 @@ namespace NBomber.Sinks.InfluxDB
         private InfluxDBClient _influxClient;
         private CustomTag[] _customTags = Array.Empty<CustomTag>();
 
-        /// <summary>
-        /// Gets the name of the sink, used for identification in NBomber.
-        /// </summary>
+        /// <inheritdoc />
         public string SinkName => "NBomber.Sinks.InfluxDB";
         
         /// <summary>
@@ -119,13 +118,7 @@ namespace NBomber.Sinks.InfluxDB
                 _customTags = customTags;
         }
 
-        /// <summary>
-        /// Initializes the sink with runtime context and configuration settings.
-        /// </summary>
-        /// <param name="context">The NBomber context object.</param>
-        /// <param name="infraConfig">Configuration source that may contain InfluxDB-specific settings.</param>
-        /// <returns>A task that represents the asynchronous initialization operation.</returns>
-        /// <exception cref="Exception">Thrown when configuration is invalid or client initialization fails.</exception>
+        /// <inheritdoc />
         public Task Init(IBaseContext context, IConfiguration infraConfig)
         {
             _logger = context.Logger.ForContext<InfluxDBSink>();
@@ -177,12 +170,7 @@ namespace NBomber.Sinks.InfluxDB
             return Task.CompletedTask;
         }
 
-        /// <summary>
-        /// Called at the start of a test session to initialize reporting.
-        /// Sends initial cluster-level data points to InfluxDB.
-        /// </summary>
-        /// <param name="sessionInfo">Metadata about the current NBomber session.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
+        /// <inheritdoc />
         public async Task Start(SessionStartInfo sessionInfo)
         {
             var writeApi = _influxClient.GetWriteApiAsync();
@@ -196,38 +184,60 @@ namespace NBomber.Sinks.InfluxDB
             await writeApi.WritePointAsync(point);
         }
         
-        /// <summary>
-        /// Called when the test session ends.
-        /// </summary>
-        /// <returns>A completed task.</returns>
+        /// <inheritdoc />
         public Task Stop() => Task.CompletedTask;
 
-        /// <summary>
-        /// Sends real-time scenario statistics to InfluxDB during test execution.
-        /// </summary>
-        /// <param name="stats">The scenario statistics to send.</param>
-        /// <returns>A task that represents the asynchronous operation.</returns>
+        /// <inheritdoc />
         public Task SaveRealtimeStats(ScenarioStats[] stats)
         {
             return SaveScenarioStats(stats, OperationType.Bombing);
         }
 
-        /// <summary>
-        /// Saves the final scenario statistics after the test session completes.
-        /// </summary>
-        /// <param name="stats">The final node statistics to send to Datadog.</param>
-        /// <returns>A completed task.</returns>
+        /// <inheritdoc />
+        public async Task SaveRealtimeMetrics(MetricStats metrics)
+        {
+            var writeApi = _influxClient.GetWriteApiAsync();
+            var counters = metrics.Counters.Select(x => MapCounter(x, OperationType.Bombing)).ToArray();
+            var gauges = metrics.Gauges.Select(x => MapGauge(x, OperationType.Bombing)).ToArray();
+            
+            var writeCounters = writeApi.WritePointsAsync(counters);
+            var writeGauges = writeApi.WritePointsAsync(gauges);
+            
+            await Task.WhenAll(writeCounters, writeGauges);
+        }
+
+        /// <inheritdoc />
         public Task SaveFinalStats(NodeStats stats)
         {
             return SaveScenarioStats(stats.ScenarioStats, OperationType.Complete);
         }
 
-        /// <summary>
-        /// Releases the resources used by the sink, including the InfluxDB client.
-        /// </summary>
+        /// <inheritdoc />
         public void Dispose()
         {
             _influxClient?.Dispose();
+        }
+
+        private PointData MapCounter(CounterStats counter, OperationType operationType)
+        {
+            var point = PointData.Measurement("nbomber")
+                .Field($"counters.{counter.MetricName}", counter.Value);
+
+            point = AddTestInfoTags(point, operationType);
+            point = AddScenarioNameTag(point, counter.ScenarioName);
+            
+            return point;
+        }
+        
+        private PointData MapGauge(GaugeStats gauge, OperationType operationType)
+        {
+            var point = PointData.Measurement("nbomber")
+                .Field($"gauges.{gauge.MetricName}", gauge.Value);
+
+            point = AddTestInfoTags(point, operationType);
+            point = AddScenarioNameTag(point, gauge.ScenarioName);
+            
+            return point;
         }
         
         private Task SaveScenarioStats(ScenarioStats[] stats, OperationType operationType)
