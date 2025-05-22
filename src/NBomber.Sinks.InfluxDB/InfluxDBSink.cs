@@ -86,7 +86,9 @@ namespace NBomber.Sinks.InfluxDB
         private InfluxDBClient _influxClient;
         private CustomTag[] _customTags = Array.Empty<CustomTag>();
 
-        /// <inheritdoc />
+        /// <summary>
+        /// Gets the name of the reporting sink.
+        /// </summary>
         public string SinkName => "NBomber.Sinks.InfluxDB";
         
         /// <summary>
@@ -118,7 +120,12 @@ namespace NBomber.Sinks.InfluxDB
                 _customTags = customTags;
         }
 
-        /// <inheritdoc />
+        /// <summary>
+        /// Initializes the reporting sink.
+        /// This method is called before the test starts, and is typically used to read configuration settings and establishes a connection to reporting data storage.
+        /// </summary>
+        /// <param name="context">Provides access to NBomber's base execution context, including logger, node info, and test metadata.</param>
+        /// <param name="infraConfig">Represents the infrastructure-specific JSON configuration.</param>
         public Task Init(IBaseContext context, IConfiguration infraConfig)
         {
             _logger = context.Logger.ForContext<InfluxDBSink>();
@@ -170,7 +177,11 @@ namespace NBomber.Sinks.InfluxDB
             return Task.CompletedTask;
         }
 
-        /// <inheritdoc />
+        /// <summary>
+        /// Starts the reporting sink at the beginning of a test session.
+        /// This method is called at the start of the test and allows the sink to perform any necessary preparations before data collection begins.
+        /// </summary>
+        /// <param name="sessionInfo">Contains metadata about the test session and scenarios that will be executed.</param> 
         public async Task Start(SessionStartInfo sessionInfo)
         {
             var writeApi = _influxClient.GetWriteApiAsync();
@@ -184,16 +195,29 @@ namespace NBomber.Sinks.InfluxDB
             await writeApi.WritePointAsync(point);
         }
         
-        /// <inheritdoc />
+        /// <summary>
+        /// Stops the reporting sink and releases any held resources (e.g., network or database connections).
+        /// This method is invoked once the test session ends and should perform any necessary cleanup.
+        /// </summary> 
         public Task Stop() => Task.CompletedTask;
 
-        /// <inheritdoc />
+        /// <summary>
+        /// Saves real-time performance statistics during the test run.
+        /// This method is invoked periodically based on the configured <c>ReportingInterval</c> to capture intermediate metrics.
+        /// </summary>
+        /// <param name="stats">Real-time stats data of the running scenarios.</param>
         public Task SaveRealtimeStats(ScenarioStats[] stats)
         {
             return SaveScenarioStats(stats, OperationType.Bombing);
         }
 
-        /// <inheritdoc />
+        /// <summary>
+        /// Saves custom metrics collected during scenario execution.
+        /// This method is invoked periodically based on the configured <c>ReportingInterval</c>,
+        /// allowing the reporting sink to persist user-defined metrics such as counters, gauges, or other performance indicators.
+        /// </summary>
+        /// <param name="metrics">A collection of metrics captured during the test session.</param>
+        /// <returns>A task that represents the asynchronous operation of saving the metrics.</returns>
         public async Task SaveRealtimeMetrics(MetricStats metrics)
         {
             var writeApi = _influxClient.GetWriteApiAsync();
@@ -206,7 +230,11 @@ namespace NBomber.Sinks.InfluxDB
             await Task.WhenAll(writeCounters, writeGauges);
         }
 
-        /// <inheritdoc />
+        /// <summary>
+        /// Saves final aggregated statistics after the test has completed.
+        /// This method is called once at the end of the test session to persist final results.
+        /// </summary>
+        /// <param name="stats">The complete set of final statistics for all executed scenarios.</param>
         public Task SaveFinalStats(NodeStats stats)
         {
             return SaveScenarioStats(stats.ScenarioStats, OperationType.Complete);
