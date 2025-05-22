@@ -252,7 +252,9 @@ namespace NBomber.Sinks.InfluxDB
                 .Field($"counters.{counter.MetricName}", counter.Value);
 
             point = AddTestInfoTags(point, operationType);
-            point = AddScenarioNameTag(point, counter.ScenarioName);
+            
+            if (!string.IsNullOrEmpty(counter.ScenarioName))
+                point = AddScenarioNameTag(point, counter.ScenarioName);
             
             return point;
         }
@@ -263,7 +265,9 @@ namespace NBomber.Sinks.InfluxDB
                 .Field($"gauges.{gauge.MetricName}", gauge.Value);
 
             point = AddTestInfoTags(point, operationType);
-            point = AddScenarioNameTag(point, gauge.ScenarioName);
+            
+            if (!string.IsNullOrEmpty(gauge.ScenarioName))
+                point = AddScenarioNameTag(point, gauge.ScenarioName);
             
             return point;
         }
