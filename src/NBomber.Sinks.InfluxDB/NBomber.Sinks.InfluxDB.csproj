@@ -4,7 +4,7 @@
         <TargetFramework>netstandard2.1</TargetFramework>        
         <Version>6.1.0</Version>
         <Authors>Anton Moldovan</Authors>
-        <Copyright>NBomber@2025</Copyright>
+        <Copyright>NBomber@2026</Copyright>
         <LangVersion>12.0</LangVersion>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
@@ -18,22 +18,21 @@
         <Title>NBomber.Sinks.InfluxDB</Title>
     </PropertyGroup>
 
+    <PropertyGroup>
+        <NuGetAudit>true</NuGetAudit>
+        <NuGetAuditMode>all</NuGetAuditMode>
+        <NuGetAuditLevel>low</NuGetAuditLevel>
+        <WarningsAsErrors>NU1900;NU1901;NU1902;NU1903;NU1904</WarningsAsErrors>
+    </PropertyGroup>
+    
     <ItemGroup>
         <None Include="../../LICENSE" Pack="true" Visible="false" PackagePath="" />
         <None Include="../../assets/nbomber_icon.png" Pack="true" Visible="false" PackagePath="" />
     </ItemGroup>
-
-    <PropertyGroup>
-        <NuGetAudit>true</NuGetAudit>
-        <NuGetAuditMode>all</NuGetAuditMode> <!-- Audit direct and transitive packages -->
-        <NuGetAuditLevel>low</NuGetAuditLevel> <!-- Report low, moderate, high and critical advisories -->
-        <!-- Fails the build on CI or on release when a vulnerability is detected -->
-        <WarningsAsErrors>(WarningsAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904</WarningsAsErrors>
-    </PropertyGroup>
     
     <ItemGroup>
       <PackageReference Include="InfluxDB.Client" Version="4.18.0" />
-      <PackageReference Include="NBomber.Contracts" Version="6.1.0" />
+      <PackageReference Include="NBomber.Contracts" Version="6.2.1" />
     </ItemGroup>
 
 </Project>
