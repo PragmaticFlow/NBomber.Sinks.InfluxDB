@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Serilog;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -6,7 +7,6 @@ using System.Threading.Tasks;
 using InfluxDB.Client;
 using InfluxDB.Client.Writes;
 using Microsoft.Extensions.Configuration;
-using Serilog;
 
 using NBomber.Contracts;
 using NBomber.Contracts.Metrics;
@@ -190,7 +190,7 @@ public class InfluxDBSink : IReportingSink
             .Field("cluster.node_count", 1)
             .Field("cluster.node_cpu_count", _context.GetNodeInfo().CoresCount);
 
-        point = AddCustomTags(AddTestInfoTags(point, OperationType.Bombing));
+        point = AddGlobalTags(point, OperationType.Bombing);
 
         await writeApi.WritePointAsync(point);
     }
@@ -226,7 +226,7 @@ public class InfluxDBSink : IReportingSink
             
         var writeCounters = writeApi.WritePointsAsync(counters);
         var writeGauges = writeApi.WritePointsAsync(gauges);
-            
+        
         await Task.WhenAll(writeCounters, writeGauges);
     }
 
@@ -251,10 +251,7 @@ public class InfluxDBSink : IReportingSink
         var point = PointData.Measurement("nbomber")
             .Field($"counters.{counter.MetricName}", counter.Value);
 
-        point = AddTestInfoTags(point, operationType);
-            
-        if (!string.IsNullOrEmpty(counter.ScenarioName))
-            point = AddScenarioNameTag(point, counter.ScenarioName);
+        point = AddMetricTags(point, operationType, counter.ScenarioName);
             
         return point;
     }
@@ -264,10 +261,7 @@ public class InfluxDBSink : IReportingSink
         var point = PointData.Measurement("nbomber")
             .Field($"gauges.{gauge.MetricName}", gauge.Value);
 
-        point = AddTestInfoTags(point, operationType);
-            
-        if (!string.IsNullOrEmpty(gauge.ScenarioName))
-            point = AddScenarioNameTag(point, gauge.ScenarioName);
+        point = AddMetricTags(point, operationType, gauge.ScenarioName);
             
         return point;
     }
@@ -288,26 +282,6 @@ public class InfluxDBSink : IReportingSink
 
         return Task.WhenAll(writeRealtimeStats, writeLatencyCounts, writeStatusCodes);
     }
-
-    private PointData AddTestInfoTags(PointData point, OperationType operationType)
-    {
-        var nodeInfo = _context.GetNodeInfo();
-        var testInfo = _context.TestInfo;
-
-        return point
-            .Field("session_id", testInfo.SessionId)
-            .Tag("current_operation", operationType.ToString().ToLower())
-            .Tag("node_type", nodeInfo.NodeType.ToString())
-            .Tag("test_suite", testInfo.TestSuite)
-            .Tag("test_name", testInfo.TestName)
-            .Tag("cluster_id", testInfo.ClusterId);
-    }
-
-    private PointData AddCustomTags(PointData point) => 
-        _customTags.Aggregate(point, (current, t) => current.Tag(t.Key, t.Value));
-        
-    private PointData AddScenarioNameTag(PointData point, string scnName) => point.Tag("scenario", scnName);
-    private PointData AddStepNameTag(PointData point, string stepName) => point.Tag("step", stepName);
 
     private ScenarioStats AddGlobalInfoStep(ScenarioStats scnStats)
     {
@@ -381,9 +355,7 @@ public class InfluxDBSink : IReportingSink
                     
                 .Field("simulation.value", simulation.Value);
 
-            point = AddCustomTags(AddTestInfoTags(point, operationType));
-            point = AddStepNameTag(point, step.StepName);
-            point = AddScenarioNameTag(point, scnStats.ScenarioName);
+            point = AddScenarioTags(point, operationType, scnStats, step.StepName);
 
             return point;
         });
@@ -397,8 +369,7 @@ public class InfluxDBSink : IReportingSink
             .Field("latency_count.more_800_less_1200", scnStats.Ok.Latency.LatencyCount.More800Less1200)
             .Field("latency_count.more_or_eq_1200", scnStats.Ok.Latency.LatencyCount.MoreOrEq1200);
 
-        point = AddCustomTags(AddTestInfoTags(point, operationType));
-        point = AddScenarioNameTag(point, scnStats.ScenarioName);
+        point = AddScenarioTags(point, operationType, scnStats);
 
         return point;
     }
@@ -414,10 +385,57 @@ public class InfluxDBSink : IReportingSink
                     .Tag("status_code.status", s.StatusCode)
                     .Field("status_code.count", s.Count);
 
-                point = AddCustomTags(AddTestInfoTags(point, operationType));
-                point = AddScenarioNameTag(point, scnStats.ScenarioName);
+                point = AddScenarioTags(point, operationType, scnStats);
 
                 return point;
             });
     }
+
+    private PointData AddGlobalTags(PointData point, OperationType operationType)
+    {
+        point = AddCustomTags(point);
+        point = AddSessionInfoTags(point, operationType);
+        point = AddTags(point, _context.TestInfo.Tags);
+
+        return point;
+    }
+
+    private PointData AddScenarioTags(PointData point, OperationType operationType, ScenarioStats scnStats, string stepName = "")
+    {
+        point = AddGlobalTags(point, operationType);
+        point = AddScenarioNameTag(point, scnStats.ScenarioName);
+        point = AddTags(point, scnStats.Tags);
+
+        if (!string.IsNullOrWhiteSpace(stepName))
+            point = AddStepNameTag(point, stepName);
+
+        return point;
+    }
+
+    private PointData AddMetricTags(PointData point, OperationType operationType, string scenarioName)
+    {
+        point = AddGlobalTags(point, operationType);
+        point = AddScenarioNameTag(point, scenarioName);
+        
+        return point;
+    }
+
+    private PointData AddSessionInfoTags(PointData point, OperationType operationType)
+    {
+        var nodeInfo = _context.GetNodeInfo();
+        var testInfo = _context.TestInfo;
+
+        return point
+            .Field("session_id", testInfo.SessionId)
+            .Tag("current_operation", operationType.ToString().ToLower())
+            .Tag("node_type", nodeInfo.NodeType.ToString())
+            .Tag("test_suite", testInfo.TestSuite)
+            .Tag("test_name", testInfo.TestName)
+            .Tag("cluster_id", testInfo.ClusterId);
+    }
+
+    private PointData AddScenarioNameTag(PointData point, string scnName) => point.Tag("scenario", scnName);
+    private PointData AddStepNameTag(PointData point, string stepName) => point.Tag("step", stepName);
+    private PointData AddCustomTags(PointData point) => _customTags.Aggregate(point, (current, t) => current.Tag(t.Key, t.Value));  
+    private PointData AddTags(PointData point, IReadOnlyDictionary<string, string> tags) => tags.Aggregate(point, (current, t) => current.Tag(t.Key, t.Value)); 
 }
