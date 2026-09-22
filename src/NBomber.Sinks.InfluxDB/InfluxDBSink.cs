@@ -393,8 +393,27 @@ public class InfluxDBSink : IReportingSink
 
     private PointData AddGlobalTags(PointData point, OperationType operationType)
     {
+        PointData AddSessionDefaultTags(PointData point, OperationType operationType)
+        {
+            var nodeInfo = _context.GetNodeInfo();
+            var testInfo = _context.TestInfo;
+
+            return point
+                .Field("session_id", testInfo.SessionId)
+                .Tag("current_operation", operationType.ToString().ToLower())
+                .Tag("node_type", nodeInfo.NodeType.ToString())
+                .Tag("test_suite", testInfo.TestSuite)
+                .Tag("test_name", testInfo.TestName)
+                .Tag("cluster_id", testInfo.ClusterId);
+        }
+        
+        PointData AddCustomTags(PointData point)
+        {
+            return _customTags.Aggregate(point, (current, t) => current.Tag(t.Key, t.Value));
+        }
+
         point = AddCustomTags(point);
-        point = AddSessionInfoTags(point, operationType);
+        point = AddSessionDefaultTags(point, operationType);
         point = AddTags(point, _context.TestInfo.Tags);
 
         return point;
@@ -407,7 +426,7 @@ public class InfluxDBSink : IReportingSink
         point = AddTags(point, scnStats.Tags);
 
         if (!string.IsNullOrWhiteSpace(stepName))
-            point = AddStepNameTag(point, stepName);
+            point = point.Tag("step", stepName);
 
         return point;
     }
@@ -420,22 +439,6 @@ public class InfluxDBSink : IReportingSink
         return point;
     }
 
-    private PointData AddSessionInfoTags(PointData point, OperationType operationType)
-    {
-        var nodeInfo = _context.GetNodeInfo();
-        var testInfo = _context.TestInfo;
-
-        return point
-            .Field("session_id", testInfo.SessionId)
-            .Tag("current_operation", operationType.ToString().ToLower())
-            .Tag("node_type", nodeInfo.NodeType.ToString())
-            .Tag("test_suite", testInfo.TestSuite)
-            .Tag("test_name", testInfo.TestName)
-            .Tag("cluster_id", testInfo.ClusterId);
-    }
-
     private PointData AddScenarioNameTag(PointData point, string scnName) => point.Tag("scenario", scnName);
-    private PointData AddStepNameTag(PointData point, string stepName) => point.Tag("step", stepName);
-    private PointData AddCustomTags(PointData point) => _customTags.Aggregate(point, (current, t) => current.Tag(t.Key, t.Value));  
     private PointData AddTags(PointData point, IReadOnlyDictionary<string, string> tags) => tags.Aggregate(point, (current, t) => current.Tag(t.Key, t.Value)); 
 }
