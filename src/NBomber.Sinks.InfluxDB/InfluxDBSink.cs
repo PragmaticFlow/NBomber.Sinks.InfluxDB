@@ -1,14 +1,16 @@
-﻿using InfluxDB.Client;
-using InfluxDB.Client.Writes;
-using Microsoft.Extensions.Configuration;
-using NBomber.Contracts;
-using NBomber.Contracts.Metrics;
-using NBomber.Contracts.Stats;
-using Serilog;
+﻿using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+
+using InfluxDB.Client;
+using InfluxDB.Client.Writes;
+using Microsoft.Extensions.Configuration;
+
+using NBomber.Contracts;
+using NBomber.Contracts.Metrics;
+using NBomber.Contracts.Stats;
 
 namespace NBomber.Sinks.InfluxDB;
 
@@ -416,10 +418,7 @@ public class InfluxDBSink : IReportingSink
 
         if (!string.IsNullOrWhiteSpace(scenarioName))
             point = AddScenarioNameTag(point, scenarioName);
-
-        if (!string.IsNullOrWhiteSpace(stepName))
-            point = AddStepNameTag(point, stepName);
-
+        
         return point;
     }
 
