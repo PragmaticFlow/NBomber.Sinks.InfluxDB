@@ -415,9 +415,7 @@ public class InfluxDBSink : IReportingSink
     private PointData AddMetricTags(PointData point, OperationType operationType, string scenarioName)
     {
         point = AddGlobalTags(point, operationType);
-
-        if (!string.IsNullOrWhiteSpace(scenarioName))
-            point = AddScenarioNameTag(point, scenarioName);
+        point = AddScenarioNameTag(point, scenarioName);
         
         return point;
     }
