@@ -12,14 +12,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - name: Setup .NET
-      uses: actions/setup-dotnet@v2
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: 10.x.x        
     
     - name: Build
-      run: dotnet build
+      run: dotnet build --verbosity minimal
     
     - name: Test
       run: dotnet test --no-build --verbosity normal
