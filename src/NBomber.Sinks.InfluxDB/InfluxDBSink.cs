@@ -249,7 +249,7 @@ public class InfluxDBSink : IReportingSink
         var point = PointData.Measurement("nbomber")
             .Field($"counters.{counter.MetricName}", counter.Value);
 
-        point = AddMetricTags(point, operationType, scenarioName: counter.ScenarioName);
+        point = AddMetricTags(point, operationType, counter.ScenarioName);
             
         return point;
     }
@@ -259,7 +259,7 @@ public class InfluxDBSink : IReportingSink
         var point = PointData.Measurement("nbomber")
             .Field($"gauges.{gauge.MetricName}", gauge.Value);
 
-        point = AddMetricTags(point, operationType, scenarioName: gauge.ScenarioName);
+        point = AddMetricTags(point, operationType, gauge.ScenarioName);
             
         return point;
     }
@@ -410,7 +410,7 @@ public class InfluxDBSink : IReportingSink
         return point;
     }
 
-    private PointData AddMetricTags(PointData point, OperationType operationType, string scenarioName = "", string stepName = "")
+    private PointData AddMetricTags(PointData point, OperationType operationType, string scenarioName)
     {
         point = AddGlobalTags(point, operationType);
 
