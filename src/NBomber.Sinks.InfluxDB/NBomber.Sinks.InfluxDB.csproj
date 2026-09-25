@@ -31,8 +31,8 @@
     </ItemGroup>
     
     <ItemGroup>
-      <PackageReference Include="InfluxDB.Client" Version="4.18.0" />
-      <PackageReference Include="NBomber.Contracts" Version="6.4.0-beta.2" />
+      <PackageReference Include="InfluxDB.Client" Version="5.1.0" />
+      <PackageReference Include="NBomber.Contracts" Version="6.4.0-beta.3" />
     </ItemGroup>
 
 </Project>

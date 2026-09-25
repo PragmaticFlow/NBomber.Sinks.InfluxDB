@@ -440,5 +440,9 @@ public class InfluxDBSink : IReportingSink
     }
 
     private PointData AddScenarioNameTag(PointData point, string scnName) => point.Tag("scenario", scnName);
-    private PointData AddTags(PointData point, IReadOnlyDictionary<string, string> tags) => tags.Aggregate(point, (current, t) => current.Tag(t.Key, t.Value)); 
+
+    private PointData AddTags(PointData point, IReadOnlyDictionary<string, string> tags)
+    {
+        return tags.Aggregate(point, (current, t) => current.Tag(t.Key, t.Value));
+    }
 }
