@@ -21,5 +21,8 @@ jobs:
     - name: Build
       run: dotnet build --verbosity minimal
     
+    - name: Docker Compose Up
+      run: docker compose -f tests/NBomber.Sinks.InfluxDB.Tests/Docker/docker-compose.yaml up -d --wait
+
     - name: Test
-      run: dotnet test --no-build --verbosity normal
+      run: dotnet test --project tests/NBomber.Sinks.InfluxDB.Tests --no-build
