@@ -5,6 +5,10 @@ VisualStudioVersion = 15.0.28307.136
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NBomber.Sinks.InfluxDB", "src\NBomber.Sinks.InfluxDB\NBomber.Sinks.InfluxDB.csproj", "{BF6C8E1B-1622-43D7-B325-B2F003FF9C0F}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NBomber.Sinks.InfluxDB.Tests", "tests\NBomber.Sinks.InfluxDB.Tests\NBomber.Sinks.InfluxDB.Tests.csproj", "{CA636C0E-F07D-4058-8A4A-ADB375949E26}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,11 +19,16 @@ Global
 		{BF6C8E1B-1622-43D7-B325-B2F003FF9C0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BF6C8E1B-1622-43D7-B325-B2F003FF9C0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BF6C8E1B-1622-43D7-B325-B2F003FF9C0F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CA636C0E-F07D-4058-8A4A-ADB375949E26}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA636C0E-F07D-4058-8A4A-ADB375949E26}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA636C0E-F07D-4058-8A4A-ADB375949E26}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA636C0E-F07D-4058-8A4A-ADB375949E26}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{CA636C0E-F07D-4058-8A4A-ADB375949E26} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0A600C4E-4EAA-44ED-873A-F357DD2CF34C}

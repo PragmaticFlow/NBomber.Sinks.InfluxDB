@@ -1,0 +1,26 @@
+# Infrastructure for the E2E tests. Start it before running the tests:
+#   docker compose up -d --wait
+# and stop it afterwards:
+#   docker compose down -v
+#
+# NBomber + InfluxDBSink --v2 write API--> InfluxDB 3 Core <--SQL-- tests
+
+name: nbomber-sinks-influxdb-tests
+
+services:
+
+    influxdb:
+        image: influxdb:3.12.0-core
+        command:
+            - influxdb3
+            - serve
+            - --node-id=node0
+            - --object-store=memory # data lives only while the container is running
+            - --without-auth
+        ports:
+            - "8181:8181" # HTTP API (write, query, health)
+        healthcheck:
+            test: ["CMD", "curl", "-fs", "http://localhost:8181/health"]
+            interval: 2s
+            timeout: 2s
+            retries: 15
