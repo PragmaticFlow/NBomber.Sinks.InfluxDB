@@ -1,4 +1,4 @@
-namespace NBomber.Sinks.InfluxDB.Tests;
+namespace NBomber.Sinks.InfluxDB.Tests.Infra;
 
 /// <summary>
 /// Points tests to InfluxDB 3 Core started from Docker/docker-compose.yaml:

@@ -2,7 +2,7 @@ using System.Globalization;
 using InfluxDB3.Client;
 using InfluxDB3.Client.Config;
 
-namespace NBomber.Sinks.InfluxDB.Tests;
+namespace NBomber.Sinks.InfluxDB.Tests.Infra;
 
 /// <summary>
 /// Reads the data written by the sink from InfluxDB 3 using SQL queries.
@@ -16,8 +16,7 @@ public class InfluxDbReader(string url, string database) : IDisposable
     /// <summary>
     /// Polls InfluxDB until the field with the given tags appears and returns its latest value.
     /// </summary>
-    public async Task<double> WaitForField(string field, IReadOnlyDictionary<string, string> tags,
-        TimeSpan? timeout = null)
+    public async Task<double> WaitForField(string field, IReadOnlyDictionary<string, string> tags, TimeSpan? timeout = null)
     {
         var sql = BuildQuery(field, tags);
         var parameters = tags.ToDictionary(tag => ToParameterName(tag.Key), object (tag) => tag.Value);
