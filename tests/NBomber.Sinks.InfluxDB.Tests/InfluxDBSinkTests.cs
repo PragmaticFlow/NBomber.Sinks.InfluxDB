@@ -89,76 +89,76 @@ public class InfluxDBSinkTests(InfluxDbFixture fixture) : IClassFixture<InfluxDb
     }
 
     private static NodeStats RunLoadTest(InfluxDBSink sink, string testName)
-         {
-             var counter = Metric.CreateCounter(CounterMetricName, unitOfMeasure: "MB");
-             var gauge = Metric.CreateGauge(GaugeMetricName, unitOfMeasure: "KB");
-     
-             var scenario = Scenario.Create(ScenarioName, async context =>
-             {
-                 await Step.Run(StepName, context, async () =>
-                 {
-                     await Task.Delay(10);
-     
-                     counter.Add(1);
-                     gauge.Set(GaugeValue);
-     
-                     return Response.Ok(statusCode: "200", sizeBytes: 100);
-                 });
-     
-                 return Response.Ok();
-             })
-             .WithInit(ctx =>
-             {
-                 ctx.RegisterMetric(counter);
-                 ctx.RegisterMetric(gauge);
-                 return Task.CompletedTask;
-             })
-             .WithoutWarmUp()
-             .WithLoadSimulations(
-                 // longer than the reporting interval, so at least one realtime report is sent
-                 Simulation.Inject(rate: 10, interval: TimeSpan.FromSeconds(1), during: TimeSpan.FromSeconds(7))
-             );
-     
-             return NBomberRunner
-                 .RegisterScenarios(scenario)
-                 .WithTestSuite("e2e")
-                 .WithTestName(testName)
-                 .WithReportingInterval(TimeSpan.FromSeconds(5))
-                 .WithoutReports()
-                 .WithReportingSinks(sink)
-                 .Run();
-         }
-     
-         private InfluxDBSink CreateSink()
-         {
-             var options = new InfluxDBClientOptions(fixture.Url)
-             {
-                 Org = fixture.Org,
-                 Bucket = fixture.Database
-             };
-     
-             return new InfluxDBSink(new InfluxDBClient(options));
-         }
-     
-         private static string CreateTestName() => $"influx_{Guid.NewGuid():N}";
-     
-         private static Dictionary<string, string> GenerateTags(string testName, OperationType operationType,
-             Dictionary<string, string>? customTags = null)
-         {
-             var tags = new Dictionary<string, string>
-             {
-                 ["test_suite"] = "e2e",
-                 ["test_name"] = testName,
-                 ["scenario"] = ScenarioName,
-                 ["current_operation"] = operationType.ToString().ToLower()
-             };
-     
-             if (customTags != null)
-             {
-                 foreach (var (key, value) in customTags)
-                     tags[key] = value;
-             }
-     
-             return tags;
-         }
+    {
+        var counter = Metric.CreateCounter(CounterMetricName, unitOfMeasure: "MB");
+        var gauge = Metric.CreateGauge(GaugeMetricName, unitOfMeasure: "KB");
+
+        var scenario = Scenario.Create(ScenarioName, async context =>
+        {
+            await Step.Run(StepName, context, async () =>
+            {
+                await Task.Delay(10);
+
+                counter.Add(1);
+                gauge.Set(GaugeValue);
+
+                return Response.Ok(statusCode: "200", sizeBytes: 100);
+            });
+
+            return Response.Ok();
+        })
+        .WithInit(ctx =>
+        {
+            ctx.RegisterMetric(counter);
+            ctx.RegisterMetric(gauge);
+            return Task.CompletedTask;
+        })
+        .WithoutWarmUp()
+        .WithLoadSimulations(
+            // longer than the reporting interval, so at least one realtime report is sent
+            Simulation.Inject(rate: 10, interval: TimeSpan.FromSeconds(1), during: TimeSpan.FromSeconds(7))
+        );
+
+        return NBomberRunner
+            .RegisterScenarios(scenario)
+            .WithTestSuite("e2e")
+            .WithTestName(testName)
+            .WithReportingInterval(TimeSpan.FromSeconds(5))
+            .WithoutReports()
+            .WithReportingSinks(sink)
+            .Run();
+    }
+
+    private InfluxDBSink CreateSink()
+    {
+        var options = new InfluxDBClientOptions(fixture.Url)
+        {
+            Org = fixture.Org,
+            Bucket = fixture.Database
+        };
+
+        return new InfluxDBSink(new InfluxDBClient(options));
+    }
+
+    private static string CreateTestName() => $"influx_{Guid.NewGuid():N}";
+
+    private static Dictionary<string, string> GenerateTags(string testName, OperationType operationType,
+        Dictionary<string, string>? customTags = null)
+    {
+        var tags = new Dictionary<string, string>
+        {
+            ["test_suite"] = "e2e",
+            ["test_name"] = testName,
+            ["scenario"] = ScenarioName,
+            ["current_operation"] = operationType.ToString().ToLower()
+        };
+
+        if (customTags != null)
+        {
+            foreach (var (key, value) in customTags)
+                tags[key] = value;
+        }
+
+        return tags;
+    }
 }
