@@ -1,3 +1,5 @@
+using NBomber.Sinks.InfluxDB.Tests.Infra.Helpers;
+
 namespace NBomber.Sinks.InfluxDB.Tests.Infra;
 
 /// <summary>
@@ -12,12 +14,12 @@ public class InfluxDbFixture : IDisposable
     public string Org => "nbomber";
     public string Database => "nbomber";
 
-    public InfluxDbReader Reader { get; }
+    public InfluxDbReader DbReader { get; }
 
     public InfluxDbFixture()
     {
-        Reader = new InfluxDbReader(Url, Database);
+        DbReader = new InfluxDbReader(Url, Database);
     }
 
-    public void Dispose() => Reader.Dispose();
+    public void Dispose() => DbReader.Dispose();
 }

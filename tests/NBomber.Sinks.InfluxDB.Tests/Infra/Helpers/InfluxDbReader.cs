@@ -2,7 +2,7 @@ using System.Globalization;
 using InfluxDB3.Client;
 using InfluxDB3.Client.Config;
 
-namespace NBomber.Sinks.InfluxDB.Tests.Infra;
+namespace NBomber.Sinks.InfluxDB.Tests.Infra.Helpers;
 
 /// <summary>
 /// Reads the data written by the sink from InfluxDB 3 using SQL queries.
