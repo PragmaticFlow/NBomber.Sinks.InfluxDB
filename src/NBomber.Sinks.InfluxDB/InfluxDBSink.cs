@@ -277,7 +277,7 @@ public class InfluxDBSink : IReportingSink
         var latencyCounts = stats.Select(x => MapLatencyCount(x, operationType)).ToArray();
         var writeLatencyCounts = writeApi.WritePointsAsync(latencyCounts);
 
-        var statusCodes = stats.SelectMany(x => MapStatusCodes(x, operationType)).ToArray();
+        var statusCodes = updatedStats.SelectMany(x => MapStatusCodes(x, operationType)).ToArray();
         var writeStatusCodes = writeApi.WritePointsAsync(statusCodes);
 
         return Task.WhenAll(writeRealtimeStats, writeLatencyCounts, writeStatusCodes);
@@ -376,8 +376,8 @@ public class InfluxDBSink : IReportingSink
 
     private IEnumerable<PointData> MapStatusCodes(ScenarioStats scnStats, OperationType operationType)
     {
-        return scnStats
-            .Ok.StatusCodes.Concat(scnStats.Fail.StatusCodes)
+        return scnStats.StepStats.SelectMany(step => step
+            .Ok.StatusCodes.Concat(step.Fail.StatusCodes)
             .Select(s =>
             {
                 var point = PointData
@@ -385,10 +385,10 @@ public class InfluxDBSink : IReportingSink
                     .Tag("status_code.status", s.StatusCode)
                     .Field("status_code.count", s.Count);
 
-                point = AddScenarioTags(point, operationType, scnStats);
+                point = AddScenarioTags(point, operationType, scnStats, step.StepName);
 
                 return point;
-            });
+            }));
     }
 
     private PointData AddGlobalTags(PointData point, OperationType operationType)
