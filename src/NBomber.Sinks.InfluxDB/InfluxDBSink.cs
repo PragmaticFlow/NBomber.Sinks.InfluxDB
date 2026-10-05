@@ -376,8 +376,7 @@ public class InfluxDBSink : IReportingSink
 
     private IEnumerable<PointData> MapStatusCodes(ScenarioStats scnStats, OperationType operationType)
     {
-        return scnStats.StepStats.SelectMany(step => step
-            .Ok.StatusCodes.Concat(step.Fail.StatusCodes)
+        return scnStats.StepStats.SelectMany(step => step.Ok.StatusCodes.Concat(step.Fail.StatusCodes)
             .Select(s =>
             {
                 var point = PointData
