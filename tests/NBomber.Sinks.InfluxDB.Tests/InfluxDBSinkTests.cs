@@ -15,8 +15,6 @@ public class InfluxDBSinkTests(InfluxDbFixture fixture) : IClassFixture<InfluxDb
     private const string GaugeMetricName = "e2e-custom-gauge";
     private const double GaugeValue = 42.5;
 
-    private readonly InfluxDbReader _reader = fixture.Reader;
-
     [Fact]
     public async Task ReportingSink_should_write_final_scenario_stats()
     {
@@ -32,20 +30,20 @@ public class InfluxDBSinkTests(InfluxDbFixture fixture) : IClassFixture<InfluxDb
         var scenarioTags = GenerateTags(testName, OperationType.Complete, new() { ["step"] = "global information" });
         var stepTags = GenerateTags(testName, OperationType.Complete, new() { ["step"] = StepName });
 
-        var scnOkCount = await _reader.WaitForField("ok.request.count", scenarioTags);
+        var scnOkCount = await fixture.DbReader.WaitForField("ok.request.count", scenarioTags);
         scnOkCount.ShouldBe(scnStats.Ok.Request.Count);
 
-        var scnFailCount = await _reader.WaitForField("fail.request.count", scenarioTags);
+        var scnFailCount = await fixture.DbReader.WaitForField("fail.request.count", scenarioTags);
         scnFailCount.ShouldBe(scnStats.Fail.Request.Count);
 
-        var stepOkCount = await _reader.WaitForField("ok.request.count", stepTags);
+        var stepOkCount = await fixture.DbReader.WaitForField("ok.request.count", stepTags);
         stepOkCount.ShouldBe(stepStats.Ok.Request.Count);
 
-        var stepLatencyMax = await _reader.WaitForField("ok.latency.max", stepTags);
+        var stepLatencyMax = await fixture.DbReader.WaitForField("ok.latency.max", stepTags);
         stepLatencyMax.ShouldBe(stepStats.Ok.Latency.MaxMs, tolerance: 0.001);
 
         var statusCodeTags = GenerateTags(testName, OperationType.Complete, new() { ["status_code.status"] = "200" });
-        var statusCodeCount = await _reader.WaitForField("status_code.count", statusCodeTags);
+        var statusCodeCount = await fixture.DbReader.WaitForField("status_code.count", statusCodeTags);
         statusCodeCount.ShouldBe(scnStats.Ok.StatusCodes.First(x => x.StatusCode == "200").Count);
     }
 
@@ -59,7 +57,7 @@ public class InfluxDBSinkTests(InfluxDbFixture fixture) : IClassFixture<InfluxDb
 
         var tags = GenerateTags(testName, OperationType.Bombing, new() { ["step"] = StepName });
 
-        var okCount = await _reader.WaitForField("ok.request.count", tags);
+        var okCount = await fixture.DbReader.WaitForField("ok.request.count", tags);
         okCount.ShouldBeGreaterThan(0);
     }
 
@@ -79,11 +77,11 @@ public class InfluxDBSinkTests(InfluxDbFixture fixture) : IClassFixture<InfluxDb
         // so the latest written counter value can be lower than the final one
         var tags = GenerateTags(testName, OperationType.Bombing);
 
-        var counter = await _reader.WaitForField($"counters.{CounterMetricName}", tags);
+        var counter = await fixture.DbReader.WaitForField($"counters.{CounterMetricName}", tags);
         counter.ShouldBeGreaterThan(0);
         counter.ShouldBeLessThanOrEqualTo(counterStats.Value);
 
-        var gauge = await _reader.WaitForField($"gauges.{GaugeMetricName}", tags);
+        var gauge = await fixture.DbReader.WaitForField($"gauges.{GaugeMetricName}", tags);
         gaugeStats.Value.ShouldBe(GaugeValue);
         gauge.ShouldBe(gaugeStats.Value);
     }
