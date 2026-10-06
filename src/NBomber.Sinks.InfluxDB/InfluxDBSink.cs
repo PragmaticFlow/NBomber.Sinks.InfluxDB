@@ -218,16 +218,9 @@ public class InfluxDBSink : IReportingSink
     /// </summary>
     /// <param name="metrics">A collection of metrics captured during the test session.</param>
     /// <returns>A task that represents the asynchronous operation of saving the metrics.</returns>
-    public async Task SaveRealtimeMetrics(MetricStats metrics)
+    public Task SaveRealtimeMetrics(MetricStats metrics)
     {
-        var writeApi = _influxClient.GetWriteApiAsync();
-        var counters = metrics.Counters.Select(x => MapCounter(x, OperationType.Bombing)).ToArray();
-        var gauges = metrics.Gauges.Select(x => MapGauge(x, OperationType.Bombing)).ToArray();
-            
-        var writeCounters = writeApi.WritePointsAsync(counters);
-        var writeGauges = writeApi.WritePointsAsync(gauges);
-        
-        await Task.WhenAll(writeCounters, writeGauges);
+        return SaveMetrics(metrics, OperationType.Bombing);
     }
 
     /// <summary>
@@ -237,7 +230,10 @@ public class InfluxDBSink : IReportingSink
     /// <param name="stats">The complete set of final statistics for all executed scenarios.</param>
     public Task SaveFinalStats(NodeStats stats)
     {
-        return SaveScenarioStats(stats.ScenarioStats, OperationType.Complete);
+        var saveStats = SaveScenarioStats(stats.ScenarioStats, OperationType.Complete);
+        var saveMetrics = SaveMetrics(stats.Metrics, OperationType.Complete);
+
+        return Task.WhenAll(saveStats, saveMetrics);
     }
 
     /// <inheritdoc />
@@ -245,27 +241,7 @@ public class InfluxDBSink : IReportingSink
     {
         _influxClient?.Dispose();
     }
-
-    private PointData MapCounter(CounterStats counter, OperationType operationType)
-    {
-        var point = PointData.Measurement("nbomber")
-            .Field($"counters.{counter.MetricName}", counter.Value);
-
-        point = AddMetricTags(point, operationType, counter.ScenarioName);
-            
-        return point;
-    }
-        
-    private PointData MapGauge(GaugeStats gauge, OperationType operationType)
-    {
-        var point = PointData.Measurement("nbomber")
-            .Field($"gauges.{gauge.MetricName}", gauge.Value);
-
-        point = AddMetricTags(point, operationType, gauge.ScenarioName);
-            
-        return point;
-    }
-        
+    
     private Task SaveScenarioStats(ScenarioStats[] stats, OperationType operationType)
     {   
         var writeApi = _influxClient.GetWriteApiAsync();
@@ -281,6 +257,18 @@ public class InfluxDBSink : IReportingSink
         var writeStatusCodes = writeApi.WritePointsAsync(statusCodes);
 
         return Task.WhenAll(writeRealtimeStats, writeLatencyCounts, writeStatusCodes);
+    }
+
+    private Task SaveMetrics(MetricStats metrics, OperationType operationType)
+    {
+        var writeApi = _influxClient.GetWriteApiAsync();
+        var counters = metrics.Counters.Select(x => MapCounter(x, operationType)).ToArray();
+        var gauges = metrics.Gauges.Select(x => MapGauge(x, operationType)).ToArray();
+
+        var writeCounters = writeApi.WritePointsAsync(counters);
+        var writeGauges = writeApi.WritePointsAsync(gauges);
+
+        return Task.WhenAll(writeCounters, writeGauges);
     }
 
     private ScenarioStats AddGlobalInfoStep(ScenarioStats scnStats)
@@ -390,6 +378,26 @@ public class InfluxDBSink : IReportingSink
 
                 return point;
             }));
+    }
+
+    private PointData MapCounter(CounterStats counter, OperationType operationType)
+    {
+        var point = PointData.Measurement("nbomber")
+            .Field($"counters.{counter.MetricName}", counter.Value);
+
+        point = AddMetricTags(point, operationType, counter.ScenarioName);
+
+        return point;
+    }
+
+    private PointData MapGauge(GaugeStats gauge, OperationType operationType)
+    {
+        var point = PointData.Measurement("nbomber")
+            .Field($"gauges.{gauge.MetricName}", gauge.Value);
+
+        point = AddMetricTags(point, operationType, gauge.ScenarioName);
+
+        return point;
     }
 
     private PointData AddGlobalTags(PointData point, OperationType operationType)

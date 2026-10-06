@@ -42,6 +42,9 @@ public class InfluxDBSinkTests(InfluxDbFixture fixture) : IClassFixture<InfluxDb
         var stepLatencyMax = await fixture.DbReader.WaitForField("ok.latency.max", stepTags);
         stepLatencyMax.ShouldBe(stepStats.Ok.Latency.MaxMs, tolerance: 0.001);
 
+        var stepLatencyCount = await fixture.DbReader.WaitForField("latency_count.less_or_eq_800", stepTags);
+        stepLatencyCount.ShouldBe(stepStats.Ok.Latency.LatencyCount.LessOrEq800);
+
         var statusCodeTags = GenerateTags(testName, OperationType.Complete, new() { ["status_code.status"] = "200" });
         var statusCodeCount = await fixture.DbReader.WaitForField("status_code.count", statusCodeTags);
         statusCodeCount.ShouldBe(scnStats.Ok.StatusCodes.First(x => x.StatusCode == "200").Count);
@@ -73,13 +76,10 @@ public class InfluxDBSinkTests(InfluxDbFixture fixture) : IClassFixture<InfluxDb
         var gaugeStats = stats.Metrics.Gauges.First(x => x.MetricName == GaugeMetricName);
         counterStats.Value.ShouldBeGreaterThan(0);
 
-        // the sink writes custom metrics only in realtime (during bombing),
-        // so the latest written counter value can be lower than the final one
-        var tags = GenerateTags(testName, OperationType.Bombing);
+        var tags = GenerateTags(testName, OperationType.Complete);
 
         var counter = await fixture.DbReader.WaitForField($"counters.{CounterMetricName}", tags);
-        counter.ShouldBeGreaterThan(0);
-        counter.ShouldBeLessThanOrEqualTo(counterStats.Value);
+        counter.ShouldBe(counterStats.Value);
 
         var gauge = await fixture.DbReader.WaitForField($"gauges.{GaugeMetricName}", tags);
         gaugeStats.Value.ShouldBe(GaugeValue);
