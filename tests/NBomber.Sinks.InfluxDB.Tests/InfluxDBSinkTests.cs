@@ -42,8 +42,9 @@ public class InfluxDBSinkTests(InfluxDbFixture fixture) : IClassFixture<InfluxDb
         var stepLatencyMax = await fixture.DbReader.WaitForField("ok.latency.max", stepTags);
         stepLatencyMax.ShouldBe(stepStats.Ok.Latency.MaxMs, tolerance: 0.001);
 
-        var stepLatencyCount = await fixture.DbReader.WaitForField("latency_count.less_or_eq_800", stepTags);
-        stepLatencyCount.ShouldBe(stepStats.Ok.Latency.LatencyCount.LessOrEq800);
+        var latencyCountTags = GenerateTags(testName, OperationType.Complete);
+        var scnLatencyCount = await fixture.DbReader.WaitForField("latency_count.less_or_eq_800", latencyCountTags);
+        scnLatencyCount.ShouldBe(scnStats.Ok.Latency.LatencyCount.LessOrEq800);
 
         var statusCodeTags = GenerateTags(testName, OperationType.Complete, new() { ["status_code.status"] = "200" });
         var statusCodeCount = await fixture.DbReader.WaitForField("status_code.count", statusCodeTags);
